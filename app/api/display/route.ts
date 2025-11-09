@@ -7,7 +7,10 @@ export async function GET(request: Request) {
 	const interval = Number.isFinite(Number(intervalParam)) ? Math.max(5, Number(intervalParam)) : 300;
 
 	const host = request.headers.get("host") ?? url.host;
-	const proto = request.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "") || "https";
+	// Нельзя смешивать ?? и || без скобок: сначала определим протокол из заголовка или URL,
+	// затем подставим https как запасной вариант.
+	const urlProto = url.protocol.replace(":", "");
+	const proto = (request.headers.get("x-forwarded-proto") ?? urlProto) || "https";
 	const base = `${proto}://${host}`;
 
 	// cache-buster, чтобы TRMNL не брал из кэша
