@@ -133,6 +133,12 @@ export async function GET(request: Request) {
 		"7": [0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000],
 		"8": [0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110],
 		"9": [0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100],
+		"A": [0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001],
+		"B": [0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110],
+		"C": [0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111],
+		"D": [0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110],
+		"E": [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111],
+		"F": [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000],
 		"-": [0b00000, 0b00000, 0b00000, 0b01110, 0b00000, 0b00000, 0b00000],
 		" ": [0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000],
 	};
@@ -182,6 +188,21 @@ export async function GET(request: Request) {
 	const startY = Math.max(2, Math.floor((height - textHeight) / 2));
 
 	drawText(dateText, startX, startY, scale);
+
+	// Если устройство прислало MAC (заголовок ID) — выведем его снизу по центру
+	const macHeader = request.headers.get("ID")?.toUpperCase() ?? "";
+	const macHex = macHeader.replace(/[^A-F0-9]/g, "").slice(0, 12);
+	if (macHex.length === 12) {
+		const macGroups = macHex.match(/.{1,2}/g) as string[];
+		const macText = macGroups.join("-");
+		const macScale = 4; // поменьше, чтобы поместилось внизу
+		const macAdvance = 5 * macScale + macScale;
+		const macWidth = macText.length * macAdvance - macScale;
+		const macHeight = 7 * macScale;
+		const macX = Math.max(2, Math.floor((width - macWidth) / 2));
+		const macY = Math.max(2, height - macHeight - 8);
+		drawText(macText, macX, macY, macScale);
+	}
 
 	// Инверсия бит (если требуется совместимость)
 	if (invertBits) {
