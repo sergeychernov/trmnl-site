@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 
 // Возвращает монохромный BMP 800x480 (1 бит на пиксель) для Seed Studio TRMNL.
 // Палитра: индекс 0 — белый, индекс 1 — чёрный. Фон — белый, по периметру — чёрная рамка.
-export async function GET() {
+export async function GET(request: Request) {
+	// Параметры совместимости:
+	// - invert=1  -> инвертировать биты (чёрное/белое)
+	// - rotate=180 -> повернуть содержимое на 180° (размеры остаются 800x480)
+	// - topdown=1 -> записывать BMP в top-down (biHeight < 0)
+	const url = new URL(request.url);
+	const invertBits = url.searchParams.get("invert") === "1" || url.searchParams.get("invert") === "true";
+	const rotate = url.searchParams.get("rotate") === "180" ? 180 : 0;
+	const topDown = url.searchParams.get("topdown") === "1" || url.searchParams.get("topdown") === "true";
 	// Геометрия
 	const width = 800;
 	const height = 480;
@@ -45,7 +53,8 @@ export async function GET() {
 	offset += 4;
 	view.setInt32(offset, width, true); // biWidth
 	offset += 4;
-	view.setInt32(offset, height, true); // biHeight (положительный — bottom-up)
+	const biHeight = topDown ? -height : height; // отрицательный — top-down
+	view.setInt32(offset, biHeight, true); // biHeight
 	offset += 4;
 	view.setUint16(offset, 1, true); // biPlanes
 	offset += 2;
@@ -78,30 +87,38 @@ export async function GET() {
 	view.setUint8(offset++, 0x00); // A
 
 	// --- Данные пикселей ---
-	// Фон — белый (индекс 0 -> биты = 0). Рамка — чёрная (индекс 1 -> биты = 1).
+	// Фон — белый (индекс 0 -> биты = 0). Рисуем через setPixelBlack с учётом rotate/topdown.
 	const bytes = new Uint8Array(buffer);
 	const startPixelData = pixelDataOffset;
 
 	// Инициализация фоном (все нули = белый, т.к. индекс 0 — белый)
 	bytes.fill(0x00, startPixelData, startPixelData + pixelDataSize);
 
-	// Чёрная рамка: верхняя и нижняя строки полностью, а также левый/правый столбцы.
-	// В BMP (1bpp) старший бит первого байта — самый левый пиксель строки.
-	for (let row = 0; row < height; row++) {
-		const rowOffset = startPixelData + row * rowSizeBytes;
-		const isTop = row === height - 1; // top визуально — последняя строка в bottom-up
-		const isBottom = row === 0; // bottom визуально — первая строка
-
-		if (isTop || isBottom) {
-			// Вся строка чёрная
-			bytes.fill(0xff, rowOffset, rowOffset + rowSizeBytes);
-		} else {
-			// Левый край (первый пиксель)
-			bytes[rowOffset] |= 0x80; // MSB первого байта
-			// Правый край (последний пиксель ширины 800 -> последний бит последнего байта)
-			const lastByteIndex = rowOffset + rowSizeBytes - 1;
-			bytes[lastByteIndex] |= 0x01; // LSB последнего байта
+	// Утилиты рисования с трансформацией координат
+	const mapXY = (x: number, y: number) => {
+		if (rotate === 180) {
+			return { mx: width - 1 - x, my: height - 1 - y };
 		}
+		return { mx: x, my: y };
+	};
+	const setPixelBlack = (x: number, yTop: number) => {
+		if (x < 0 || x >= width || yTop < 0 || yTop >= height) return;
+		const { mx, my } = mapXY(x, yTop);
+		const rowIndex = topDown ? my : height - 1 - my; // top-down или bottom-up
+		const rowOffset = startPixelData + rowIndex * rowSizeBytes;
+		const byteIndex = rowOffset + (mx >> 3);
+		const mask = 0x80 >> (mx & 7);
+		bytes[byteIndex] |= mask;
+	};
+
+	// Чёрная рамка
+	for (let x = 0; x < width; x++) {
+		setPixelBlack(x, 0); // верх
+		setPixelBlack(x, height - 1); // низ
+	}
+	for (let y = 0; y < height; y++) {
+		setPixelBlack(0, y); // левый
+		setPixelBlack(width - 1, y); // правый
 	}
 
 	// --- Текст: текущая дата YYYY-MM-DD, 5x7 шрифт (масштабируемый) ---
@@ -118,15 +135,6 @@ export async function GET() {
 		"9": [0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100],
 		"-": [0b00000, 0b00000, 0b00000, 0b01110, 0b00000, 0b00000, 0b00000],
 		" ": [0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000],
-	};
-
-	const setPixelBlack = (x: number, yTop: number) => {
-		if (x < 0 || x >= width || yTop < 0 || yTop >= height) return;
-		const rowIndexFromBottom = height - 1 - yTop; // bottom-up
-		const rowOffset = startPixelData + rowIndexFromBottom * rowSizeBytes;
-		const byteIndex = rowOffset + (x >> 3);
-		const mask = 0x80 >> (x & 7);
-		bytes[byteIndex] |= mask;
 	};
 
 	const drawGlyph = (glyph: number[], x: number, yTop: number, scale: number) => {
@@ -174,6 +182,13 @@ export async function GET() {
 	const startY = Math.max(2, Math.floor((height - textHeight) / 2));
 
 	drawText(dateText, startX, startY, scale);
+
+	// Инверсия бит (если требуется совместимость)
+	if (invertBits) {
+		for (let i = startPixelData; i < startPixelData + pixelDataSize; i++) {
+			bytes[i] ^= 0xff;
+		}
+	}
 
 	return new NextResponse(bytes, {
 		headers: {
