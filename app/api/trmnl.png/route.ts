@@ -122,14 +122,15 @@ export async function GET() {
 	};
 
 	const chunk = (type: string, data: Uint8Array) => {
-		const out = new Uint8Array(8 + 4 + data.length + 4);
+		// Формат: 4 байта длина + 4 байта тип + data + 4 байта CRC => 12 + data.length
+		const out = new Uint8Array(12 + data.length);
 		// length
 		writeUint32BE(out, 0, data.length);
 		// type
 		for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
 		// data
 		out.set(data, 8);
-		// crc
+		// crc(type+data)
 		const crcInput = new Uint8Array(4 + data.length);
 		for (let i = 0; i < 4; i++) crcInput[i] = type.charCodeAt(i);
 		crcInput.set(data, 4);
