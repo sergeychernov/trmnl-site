@@ -23,7 +23,8 @@ export async function GET(request: Request) {
 	const filename = `${macClean || "DEVICE"}_${ts}.bmp`;
 
 	// Можно управлять параметрами совместимости через query (?invert/topdown/rotate) при необходимости
-	const image_url = `${base}/api/trmnl?ts=${ts}`;
+	const idQuery = macClean ? `&id=${macClean}` : "";
+	const image_url = `${base}/api/trmnl?ts=${ts}${idQuery}`;
 
 	return NextResponse.json(
 		{

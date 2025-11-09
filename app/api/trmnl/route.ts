@@ -11,10 +11,18 @@ export async function GET(request: Request) {
 	const invertBits = url.searchParams.get("invert") === "1" || url.searchParams.get("invert") === "true";
 	const rotate = url.searchParams.get("rotate") === "180" ? 180 : 0;
 	const topDown = url.searchParams.get("topdown") === "1" || url.searchParams.get("topdown") === "true";
+	// Идентификатор устройства: в запросе к изображению заголовок ID обычно НЕ приходит,
+	// поэтому читаем также query `id` (ожидается 12 HEX, без двоеточий).
+	const idParam = url.searchParams.get("id")?.toUpperCase() ?? "";
+	const idHeader = request.headers.get("ID")?.toUpperCase() ?? "";
+	const macRaw = idParam || idHeader;
 	// Геометрия
 	const width = 800;
 	const height = 480;
 	const bitsPerPixel = 1; // 1bpp, монохром
+	// Локальная отладка (раскомментировать при необходимости)
+	// console.log(request.headers);
+	// console.log(url.searchParams);
 
 	// Размер строки в байтах: выровнено к 4 байтам
 	const rowSizeBytes = Math.ceil((width * bitsPerPixel) / 32) * 4; // формула BMP
@@ -189,9 +197,8 @@ export async function GET(request: Request) {
 
 	drawText(dateText, startX, startY, scale);
 
-	// Если устройство прислало MAC (заголовок ID) — выведем его снизу по центру
-	const macHeader = request.headers.get("ID")?.toUpperCase() ?? "";
-	const macHex = macHeader.replace(/[^A-F0-9]/g, "").slice(0, 12);
+	// Если передан MAC (через ?id= или заголовок ID) — выведем его снизу по центру
+	const macHex = macRaw.replace(/[^A-F0-9]/g, "").slice(0, 12);
 	if (macHex.length === 12) {
 		const macGroups = macHex.match(/.{1,2}/g) as string[];
 		const macText = macGroups.join("-");
