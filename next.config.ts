@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
 
+  // Убираем автоматический 308-редирект при хвостовом слэше
+  skipTrailingSlashRedirect: true,
+  // Не нормализуем URL в middleware (на всякий случай для совместимости)
+  skipMiddlewareUrlNormalize: true,
+
   // Если используете новые фичи 15-й — оставьте как есть, тут ничего спец. не нужно.
   // Важно: никакие порты в конфиге не задаём — платформа пробрасывает PORT в env.
   async rewrites() {
