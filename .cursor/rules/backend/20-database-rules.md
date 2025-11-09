@@ -1,0 +1,69 @@
+## Правила Cursor — база данных (MongoDB Atlas)
+
+### Переменные окружения
+- Обязательные: `MONGODB_URI`. Опционально: `MONGODB_DB` (по умолчанию `trmnl`).
+- Локально — `.env.local`; в Vercel — Project → Settings → Environment Variables.
+- Никогда не логируй и не коммить секреты. Добавь образец в `.env.example` при вводе новых переменных.
+
+### Runtime и платформа
+- API‑роуты, которые ходят в БД, должны выполняться в Node.js runtime: `export const runtime = "nodejs"`.
+- Edge runtime не использовать с драйвером MongoDB.
+- Для роутов, зависящих от запроса, указывать: `export const dynamic = "force-dynamic"`. Регион: `export const preferredRegion = "auto"` если нет жёстких требований.
+
+### Клиент MongoDB и подключения
+- Использовать единый клиент из `lib/mongodb.ts` (переиспользование соединения через `globalThis`).
+- Не создавать `new MongoClient` в каждом обработчике запроса.
+- Настройки клиента (рекомендовано для Vercel Functions):
+  - `maxPoolSize: 5`, `maxIdleTimeMS: 60000`, `serverSelectionTimeoutMS: 5000`
+  - `serverApi: { version: v1, strict: true, deprecationErrors: true }`
+  - `appName: "vercel"`
+
+### Паттерн использования в API
+- Импортируй `getDb()` и работай с коллекциями типобезопасно: `db.collection<MyType>("name")`.
+- Оборачивай доступ к БД в `try/catch`, отдавай `{ error }` и корректный статус при сбоях.
+- Пример:
+
+```ts
+import { NextResponse } from "next/server";
+import { getDb } from "@/lib/mongodb";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+	try {
+		const db = await getDb();
+		const items = await db.collection<{ _id: string }>("devices").find().limit(10).toArray();
+		return NextResponse.json({ ok: true, items });
+	} catch (e) {
+		const message = e instanceof Error ? e.message : "Unknown error";
+		return NextResponse.json({ ok: false, error: message }, { status: 500 });
+	}
+}
+```
+
+### Индексы и ограничения
+- Создавай уникальные индексы для инвариантов (например, `device_id`):
+  - `db.collection("devices").createIndex({ device_id: 1 }, { unique: true })`
+- Для TTL/очистки — TTL‑индексы на полях со временем.
+- Индексы должны создаваться детерминированно (скрипт/инициализация), а не вручную по памяти.
+
+### Безопасность и сетевой доступ
+- Не логируй полную `MONGODB_URI`. В логах маскируй логин/пароль.
+- В Atlas минимизируй IP‑allow list. `0.0.0.0/0` только для прототипа/временной отладки.
+- Не возвращай из API внутренние сообщения драйвера/стека ошибок пользователю.
+
+### Идентификация устройств
+- Не полагаться на сырой MAC. Предпочтительно собственный `device_id` (UUID) или хэш MAC с солью.
+- Соль хранить в `MAC_SALT` (env). В БД хранить только хэш.
+
+### Запрещено
+- Подключаться к БД из клиентских компонентов/браузерного кода.
+- Создавать новый `MongoClient` на каждый запрос.
+- Использовать Edge runtime с MongoDB‑драйвером.
+- Долгие блокирующие операции в горячем API‑пути без пагинации/лимитов.
+
+### Диагностика
+- `/api/test` — смоук‑тест подключения (`ping`, список коллекций). Держать этот маршрут рабочим.
+
+

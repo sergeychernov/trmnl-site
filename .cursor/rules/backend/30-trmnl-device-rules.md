@@ -1,0 +1,40 @@
+## Правила Cursor — устройство TRMNL (BYOS)
+
+### Дисплей и формат
+- Разрешение: 800×480 px.
+- Цветность: 1‑бит (чёрно‑белое изображение).
+- Целевой формат для устройства: BMP (генерируется на сервере).
+- Генерация изображения:
+  - Плагины возвращают `MonochromeImage` (сырой 1‑бит), далее сервер преобразует в BMP.
+  - Кеширование/валидация отвечает API‑уровень.
+  - Источник: BYOS Next.js README — `https://github.com/usetrmnl/byos_next/blob/main/README.md`.
+
+### Эндпоинты BYOS
+- `/api/setup`:
+  - Регистрация устройства, приём MAC (`ID` в заголовках).
+  - Возврат/подтверждение `api_key`, `friendly_id`.
+- `/api/display`:
+  - Возвращает `image_url` (ссылка на BMP), `filename`, `refresh_rate`, флаги `reset_firmware`, `update_firmware`.
+- `/api/log`:
+  - Приём диагностических сообщений от устройства.
+
+### Идентификация
+- Идентификатор пользователя/устройства в системе — `hash(MAC)` (см. `@lib/hash.hashMacAddress`).
+- Нормализация MAC: верхний регистр, удалить не шестнадцатеричные символы.
+
+### Настройки (коллекция `settings`)
+- Коллекция: `settings`, `_id = <hash(MAC)>`, документ формата `Settings` (см. `@lib/settings`).
+- Создаётся при первом обращении, upsert через `PUT /api/settings/[id]`.
+- Выбор плагина:
+  - Нет документа — плагин `registration` (QR на `/settings/<id>`).
+  - Есть документ — использовать `device.pluginId` и `device.pluginSettings`.
+
+### Ориентация
+- По умолчанию `landscape`; `portrait` допускается настройкой плагина.
+- Размер `outputSize` у плагина фиксированный (обычно 800×480), ответственность за поворот лежит на плагине/рендере.
+
+### Базовый URL для ссылок (QR)
+- Порядок определения `baseUrl`: `NEXT_PUBLIC_BASE_URL`/`BASE_URL` → `x-forwarded-proto`+`x-forwarded-host` → `x-vercel-deployment-url` → `host` → `request.url.origin`.
+- Плагинам `baseUrl` и `deviceId` передаются через `context` третьим аргументом в `render`.
+
+

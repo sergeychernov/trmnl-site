@@ -1,7 +1,45 @@
 import { NextResponse } from "next/server";
+import { getPlugin } from "@/plugins";
+import type { Settings, UserSettings } from "@/lib/settings";
+import { getDb } from "@/lib/mongodb";
+import { hashMacAddress } from "@lib/hash";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function getBaseUrl(request: Request): string {
+	const envOverride = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL;
+	if (envOverride) {
+		return envOverride.replace(/\/+$/, "");
+	}
+	const headers = request.headers;
+	const forwardedProto = headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+	const forwardedHost = headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+	const vercelHost = headers.get("x-vercel-deployment-url")?.trim();
+	const host = forwardedHost || vercelHost || headers.get("host") || "";
+	let protocol = forwardedProto || (vercelHost ? "https" : "");
+	if (!protocol) {
+		try {
+			protocol = new URL(request.url).protocol.replace(":", "");
+		} catch {
+			protocol = "https";
+		}
+	}
+	if (!host) {
+		try {
+			return new URL(request.url).origin;
+		} catch {
+			return `${protocol}://localhost`;
+		}
+	}
+	if (host.includes("://")) {
+		return host.replace(/\/+$/, "");
+	}
+	return `${protocol}://${host}`.replace(/\/+$/, "");
+}
 
 // Возвращает монохромный BMP 800x480 (1 бит на пиксель) для Seed Studio TRMNL.
-// Палитра: индекс 0 — белый, индекс 1 — чёрный. Фон — белый, по периметру — чёрная рамка.
+// Палитра: индекс 0 — белый, индекс 1 — чёрный. Контент генерирует плагин.
 export async function GET(request: Request) {
 	// Параметры совместимости:
 	// - invert=1  -> инвертировать биты (чёрное/белое)
@@ -11,14 +49,59 @@ export async function GET(request: Request) {
 	const invertBits = url.searchParams.get("invert") === "1" || url.searchParams.get("invert") === "true";
 	const rotate = url.searchParams.get("rotate") === "180" ? 180 : 0;
 	const topDown = url.searchParams.get("topdown") === "1" || url.searchParams.get("topdown") === "true";
+	const orientationParam = url.searchParams.get("orientation") === "portrait" ? "portrait" : "landscape";
 	// Идентификатор устройства: в запросе к изображению заголовок ID обычно НЕ приходит,
 	// поэтому читаем также query `id` (ожидается 12 HEX, без двоеточий).
 	const idParam = url.searchParams.get("id")?.toUpperCase() ?? "";
 	const idHeader = request.headers.get("ID")?.toUpperCase() ?? "";
 	const macRaw = idParam || idHeader;
-	// Геометрия
-	const width = 800;
-	const height = 480;
+	const macHex = macRaw.replace(/[^A-F0-9]/g, "").slice(0, 12);
+
+	// Обеспечиваем наличие коллекции settings и проверяем запись для устройства по id = hash(MAC)
+	const db = await getDb();
+	const collections = await db.listCollections({ name: "settings" }, { nameOnly: true }).toArray();
+	if (collections.length === 0) {
+		await db.createCollection("settings");
+	}
+	const deviceId = macHex ? await hashMacAddress(macHex) : null;
+	const settingsCol = db.collection<Settings & { _id: string }>("settings");
+	const settingsDoc = deviceId ? await settingsCol.findOne({ _id: deviceId }) : null;
+
+	// Выбираем плагин: если нет настроек — показываем registration (QR на страницу настроек),
+	// иначе берём плагин из settings.device.pluginId
+	const useRegistration = !settingsDoc;
+	const selectedPluginId = useRegistration ? "registration" : settingsDoc.device.pluginId;
+	const plugin = getPlugin(selectedPluginId);
+	if (!plugin) {
+		return NextResponse.json({ error: "plugin not found" }, { status: 500 });
+	}
+	const user: UserSettings = { name: "", age: 0 };
+	const origin = getBaseUrl(request);
+	let deviceSettings: Record<string, unknown>;
+	if (useRegistration) {
+		deviceSettings = {
+			orientation: orientationParam,
+			baseUrl: origin,
+			idHex: deviceId ?? undefined,
+			marginModules: 4,
+		};
+	} else {
+		// Берём сохранённые настройки плагина из БД
+		const saved = (settingsDoc?.device?.pluginSettings as Record<string, unknown> | undefined) ?? {};
+		// Для calendar добавим текущий macHex, если он есть и не задан
+		if (selectedPluginId === "calendar" && macHex.length === 12 && saved.macHex == null) {
+			saved.macHex = macHex;
+		}
+		// Позволим переопределить ориентацию через query-параметр
+		deviceSettings = { ...saved, orientation: saved.orientation ?? orientationParam };
+	}
+	const pluginTyped = plugin as import("@/plugins").Plugin<Record<string, unknown>>;
+	const context = { deviceId, baseUrl: origin };
+	const image = await pluginTyped.render(user, deviceSettings, context);
+
+	// Геометрия из результата плагина
+	const width = image.width;
+	const height = image.height;
 	const bitsPerPixel = 1; // 1bpp, монохром
 	// Локальная отладка (раскомментировать при необходимости)
 	// console.log(request.headers);
@@ -95,7 +178,7 @@ export async function GET(request: Request) {
 	view.setUint8(offset++, 0x00); // A
 
 	// --- Данные пикселей ---
-	// Фон — белый (индекс 0 -> биты = 0). Рисуем через setPixelBlack с учётом rotate/topdown.
+	// Фон — белый (индекс 0 -> биты = 0). Переносим биты из буфера плагина, учитывая rotate/topdown.
 	const bytes = new Uint8Array(buffer);
 	const startPixelData = pixelDataOffset;
 
@@ -119,96 +202,16 @@ export async function GET(request: Request) {
 		bytes[byteIndex] |= mask;
 	};
 
-	// Чёрная рамка
-	for (let x = 0; x < width; x++) {
-		setPixelBlack(x, 0); // верх
-		setPixelBlack(x, height - 1); // низ
-	}
+	// Перенос данных из MonochromeImage в BMP-буфер
+	const bytesPerRowPacked = Math.ceil(width / 8);
 	for (let y = 0; y < height; y++) {
-		setPixelBlack(0, y); // левый
-		setPixelBlack(width - 1, y); // правый
-	}
-
-	// --- Текст: текущая дата YYYY-MM-DD, 5x7 шрифт (масштабируемый) ---
-	const FONT_5x7: Record<string, number[]> = {
-		"0": [0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110],
-		"1": [0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110],
-		"2": [0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111],
-		"3": [0b01110, 0b10001, 0b00001, 0b00110, 0b00001, 0b10001, 0b01110],
-		"4": [0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010],
-		"5": [0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110],
-		"6": [0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110],
-		"7": [0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000],
-		"8": [0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110],
-		"9": [0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100],
-		"A": [0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001],
-		"B": [0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110],
-		"C": [0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111],
-		"D": [0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110],
-		"E": [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111],
-		"F": [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000],
-		"-": [0b00000, 0b00000, 0b00000, 0b01110, 0b00000, 0b00000, 0b00000],
-		" ": [0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000],
-	};
-
-	const drawGlyph = (glyph: number[], x: number, yTop: number, scale: number) => {
-		const glyphHeight = 7;
-		const glyphWidth = 5;
-		for (let gy = 0; gy < glyphHeight; gy++) {
-			const rowBits = glyph[gy] ?? 0;
-			for (let gx = 0; gx < glyphWidth; gx++) {
-				const bitOn = (rowBits & (1 << (glyphWidth - 1 - gx))) !== 0;
-				if (!bitOn) continue;
-				// масштабируем пиксель
-				for (let sy = 0; sy < scale; sy++) {
-					for (let sx = 0; sx < scale; sx++) {
-						setPixelBlack(x + gx * scale + sx, yTop + gy * scale + sy);
-					}
-				}
+		for (let x = 0; x < width; x++) {
+			const packedIndex = y * bytesPerRowPacked + (x >> 3);
+			const bit = (image.data[packedIndex] >> (7 - (x & 7))) & 1;
+			if (bit === 1) {
+				setPixelBlack(x, y);
 			}
 		}
-	};
-
-	const drawText = (text: string, x: number, yTop: number, scale: number) => {
-		const glyphAdvance = 5 * scale;
-		const letterSpacing = scale; // 1 столбец пробела
-		let cursorX = x;
-		for (const ch of text) {
-			const g = FONT_5x7[ch] ?? FONT_5x7[" "];
-			drawGlyph(g, cursorX, yTop, scale);
-			cursorX += glyphAdvance + letterSpacing;
-		}
-	};
-
-	// Вычисляем строку даты
-	const now = new Date();
-	const yyyy = String(now.getFullYear());
-	const mm = String(now.getMonth() + 1).padStart(2, "0");
-	const dd = String(now.getDate()).padStart(2, "0");
-	const dateText = `${yyyy}-${mm}-${dd}`;
-
-	// Подбор масштаба и центрирование
-	const scale = 6; // 5x7 -> 30x42 на символ
-	const glyphAdvance = 5 * scale + scale; // включая интервал
-	const textWidth = dateText.length * glyphAdvance - scale; // без последнего интервала
-	const textHeight = 7 * scale;
-	const startX = Math.max(2, Math.floor((width - textWidth) / 2));
-	const startY = Math.max(2, Math.floor((height - textHeight) / 2));
-
-	drawText(dateText, startX, startY, scale);
-
-	// Если передан MAC (через ?id= или заголовок ID) — выведем его снизу по центру
-	const macHex = macRaw.replace(/[^A-F0-9]/g, "").slice(0, 12);
-	if (macHex.length === 12) {
-		const macGroups = macHex.match(/.{1,2}/g) as string[];
-		const macText = macGroups.join("-");
-		const macScale = 4; // поменьше, чтобы поместилось внизу
-		const macAdvance = 5 * macScale + macScale;
-		const macWidth = macText.length * macAdvance - macScale;
-		const macHeight = 7 * macScale;
-		const macX = Math.max(2, Math.floor((width - macWidth) / 2));
-		const macY = Math.max(2, height - macHeight - 8);
-		drawText(macText, macX, macY, macScale);
 	}
 
 	// Инверсия бит (если требуется совместимость)
