@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -26,8 +27,16 @@ export default function Header() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="font-semibold">
-              TRMNL
+            <Link href="/" className="font-semibold flex items-center gap-2">
+              <Image
+                src="/logo.svg"
+                alt="TRMNL"
+                width={28}
+                height={28}
+                priority
+                className="h-7 w-7"
+              />
+              <span className="hidden sm:inline">TRMNL</span>
             </Link>
           </div>
 

@@ -35,4 +35,7 @@ export async function getDb(dbName: string = defaultDbName): Promise<Db> {
 	return client.db(dbName);
 }
 
+// Экспорт clientPromise для адаптера NextAuth
+export const mongoClientPromise = (globalThis as GlobalWithMongo)._mongoClientPromise!;
+
 

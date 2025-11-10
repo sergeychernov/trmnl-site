@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Easily switch colors -->
+    <style>
+      .bg { fill: none; stroke: #111; stroke-width: 36; }
+      .glyph { fill: #111; }
+    </style>
+  </defs>
+
+  <!-- Rounded square frame -->
+  <rect x="60" y="60" width="904" height="904" rx="140" class="bg" />
+
+  <!-- Terminal chevron ">" built with two rectangles for crisp e‑ink rendering -->
+  <g transform="translate(240, 260)">
+    <rect class="glyph" x="0"   y="220" width="340" height="60" transform="rotate(-45 0 220)" />
+    <rect class="glyph" x="0"   y="220" width="340" height="60" transform="rotate(45 0 220)" />
+  </g>
+
+  <!-- Baseline "_" -->
+  <rect class="glyph" x="560" y="650" width="220" height="60" rx="12"/>
+
+  <!-- Optional: dot cursor (comment out if not needed) -->
+  <!-- <circle class="glyph" cx="520" cy="680" r="24"/> -->
+</svg>
