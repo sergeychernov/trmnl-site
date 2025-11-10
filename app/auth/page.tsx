@@ -1,5 +1,6 @@
+const name = "Вход/Регистрация";
 export const metadata = {
-  title: "Вход/Регистрация",
+  title: `TRMNL: ${name}`,
 };
 
 import { Suspense } from "react";

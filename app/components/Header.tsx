@@ -4,18 +4,19 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 
 const navItems = [
   { href: "/", label: "Главная" },
   { href: "/plugins", label: "Список плагинов" },
   { href: "/auth", label: "Вход/Выход" },
-  { href: "/profile", label: "Профиль пользователя" },
   { href: "/devices", label: "Устройства" },
 ];
 
 export default function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { data: session } = useSession();
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
@@ -41,20 +42,23 @@ export default function Header() {
           </div>
 
           <nav className="hidden md:flex items-center gap-4 text-sm">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={[
-                  "px-3 py-1.5 rounded-md transition-colors",
-                  isActive(item.href)
-                    ? "bg-foreground/10"
-                    : "hover:bg-foreground/10",
-                ].join(" ")}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              const href = item.href === "/auth" ? (session ? "/profile" : "/auth") : item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={href}
+                  className={[
+                    "px-3 py-1.5 rounded-md transition-colors",
+                    isActive(href)
+                      ? "bg-foreground/10"
+                      : "hover:bg-foreground/10",
+                  ].join(" ")}
+                >
+                  {item.href === "/auth" ? (session ? "Профиль" : "Вход") : item.label}
+                </Link>
+              );
+            })}
           </nav>
 
           <button
@@ -83,21 +87,24 @@ export default function Header() {
         {open && (
           <div className="md:hidden pb-3">
             <nav className="grid gap-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setOpen(false)}
-                  className={[
-                    "px-3 py-2 rounded-md text-sm transition-colors",
-                    isActive(item.href)
-                      ? "bg-foreground/10"
-                      : "hover:bg-foreground/10",
-                  ].join(" ")}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const href = item.href === "/auth" ? (session ? "/profile" : "/auth") : item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={href}
+                    onClick={() => setOpen(false)}
+                    className={[
+                      "px-3 py-2 rounded-md text-sm transition-colors",
+                      isActive(href)
+                        ? "bg-foreground/10"
+                        : "hover:bg-foreground/10",
+                    ].join(" ")}
+                  >
+                    {item.href === "/auth" ? (session ? "Профиль" : "Вход") : item.label}
+                  </Link>
+                );
+              })}
             </nav>
           </div>
         )}
