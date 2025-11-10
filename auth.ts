@@ -103,7 +103,10 @@ export const {
 	signIn,
 	signOut,
 } = NextAuth({
-	adapter: MongoDBAdapter(mongoClientPromise),
+	// Важно: используем ту же БД, что и в getDb(), чтобы коллекция accounts была общей
+	adapter: MongoDBAdapter(mongoClientPromise, {
+		databaseName: process.env.MONGODB_DB || "trmnl",
+	}),
 	secret: process.env.NEXTAUTH_SECRET,
 	session: { strategy: "jwt" },
 	providers,
