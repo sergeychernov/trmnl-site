@@ -4,7 +4,7 @@ import Yandex from "next-auth/providers/yandex";
 import type { NextAuthConfig, User, DefaultSession, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import { mongoClientPromise, getDb } from "./lib/mongodb";
+import { mongoClientPromise, getDb, resolvedMongoDbName } from "./lib/mongodb";
 import bcrypt from "bcryptjs";
 import { ObjectId } from "mongodb";
 
@@ -103,8 +103,10 @@ export const {
 	signIn,
 	signOut,
 } = NextAuth({
-	// Используем ту же БД, что и задаёт URI/ENV для MongoClient
-	adapter: MongoDBAdapter(mongoClientPromise),
+	// Жёстко синхронизируем имя БД между адаптером и getDb()
+	adapter: MongoDBAdapter(mongoClientPromise, {
+		databaseName: resolvedMongoDbName,
+	}),
 	secret: process.env.NEXTAUTH_SECRET,
 	session: { strategy: "jwt" },
 	providers,

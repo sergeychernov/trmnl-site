@@ -5,8 +5,10 @@ if (!uri) {
 	throw new Error("MONGODB_URI is not set");
 }
 
-// Если MONGODB_DB не задан, используем дефолт из URI (client.db() без имени)
-const configuredDbName = process.env.MONGODB_DB;
+// Единое имя БД для всего приложения:
+// - Берём из MONGODB_DB, если задано
+// - Иначе используем "trmnl" (чтобы не проваливаться в "test")
+export const resolvedMongoDbName: string = process.env.MONGODB_DB || "trmnl";
 
 type GlobalWithMongo = typeof globalThis & {
 	_mongoClientPromise?: Promise<MongoClient>;
@@ -33,9 +35,7 @@ if (!g._mongoClientPromise) {
 
 export async function getDb(dbName?: string): Promise<Db> {
 	const client = await g._mongoClientPromise!;
-	if (dbName) return client.db(dbName);
-	if (configuredDbName) return client.db(configuredDbName);
-	return client.db(); // БД из URI или "test", если в URI не задана
+	return client.db(dbName || resolvedMongoDbName);
 }
 
 // Экспорт clientPromise для адаптера NextAuth
