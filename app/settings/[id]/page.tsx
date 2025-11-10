@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { loadSettingsFromLocalStorage, saveSettingsToLocalStorage, type Settings } from "@lib/settings";
+import { loadSettingsFromLocalStorage, saveSettingsToLocalStorage, parseSettings, type Settings } from "@lib/settings";
 import { listPlugins, getPlugin } from "@/plugins";
 
 type Params = { id?: string };
@@ -23,35 +23,68 @@ export default function SettingsPage() {
   const [pluginSettingsText, setPluginSettingsText] = useState<string>("");
   const [pluginSettingsError, setPluginSettingsError] = useState<string>("");
   const [saved, setSaved] = useState<null | Settings>(null);
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    if (!idParam) return;
-    const existing = loadSettingsFromLocalStorage(idParam);
-    if (existing) {
-      setUserName(existing.user.name);
-      setUserAge(existing.user.age);
-      setPluginId(existing.device.pluginId);
-      setPluginSettingsText(JSON.stringify(existing.device.pluginSettings, null, 2));
-      setSaved(existing);
-    } else {
-      // Инициализируем настройками плагина по умолчанию
+    let cancelled = false;
+    async function init() {
+      if (!idParam) return;
+      setInitializing(true);
+      const existing = loadSettingsFromLocalStorage(idParam);
+      if (existing) {
+        if (cancelled) return;
+        setUserName(existing.user.name);
+        setUserAge(existing.user.age);
+        setPluginId(existing.device.pluginId);
+        setPluginSettingsText(JSON.stringify(existing.device.pluginSettings, null, 2));
+        setSaved(existing);
+        setInitializing(false);
+        return;
+      }
+      // Пробуем подтянуть из БД
+      try {
+        const res = await fetch(`/api/settings/${encodeURIComponent(idParam)}`, { cache: "no-store" });
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          const parsed = data?.settings ? parseSettings(data.settings) : null;
+          if (parsed) {
+            setUserName(parsed.user.name);
+            setUserAge(parsed.user.age);
+            setPluginId(parsed.device.pluginId);
+            setPluginSettingsText(JSON.stringify(parsed.device.pluginSettings, null, 2));
+            setSaved(parsed);
+            setInitializing(false);
+            return;
+          }
+        }
+      } catch {
+        // игнорируем сетевые ошибки
+      }
+      // Фоллбек — настройки по умолчанию текущего плагина
       const p = getPlugin(pluginId) ?? plugins[0];
       if (p) {
         setPluginSettingsText(JSON.stringify(p.defaultSettings, null, 2));
       }
+      setInitializing(false);
     }
+    void init();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idParam]);
 
   useEffect(() => {
-    // Смена плагина -> подставим его настройки по умолчанию
+    // Смена плагина пользователем -> подставим его настройки по умолчанию
+    if (initializing) return;
     const p = getPlugin(pluginId);
     if (p) {
       setPluginSettingsText(JSON.stringify(p.defaultSettings, null, 2));
       setPluginSettingsError("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pluginId]);
+  }, [pluginId, initializing]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
