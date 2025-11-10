@@ -16,9 +16,10 @@ export async function GET(
 
   const db = await getDb();
   const accounts = db.collection("accounts");
+  const userId = session.user.id as string;
   const doc = await accounts.findOne({
     provider,
-    userId: new ObjectId((session.user as any).id),
+    userId: new ObjectId(userId),
   });
 
   return NextResponse.json({ linked: !!doc });

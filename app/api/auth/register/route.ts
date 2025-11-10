@@ -35,8 +35,9 @@ export async function POST(req: NextRequest) {
 			passwordHash,
 		});
 		return NextResponse.json({ ok: true, created: true });
-	} catch (e: any) {
-		return NextResponse.json({ error: "Server error", details: String(e?.message ?? e) }, { status: 500 });
+	} catch (e: unknown) {
+		const message = e instanceof Error ? e.message : String(e);
+		return NextResponse.json({ error: "Server error", details: message }, { status: 500 });
 	}
 }
 

@@ -14,7 +14,7 @@ export default function Home() {
       if (!res.ok) throw new Error("Request failed");
       const data = await res.json();
       setResult(data.result ?? null);
-    } catch (e) {
+    } catch {
       setResult("ошибка");
     } finally {
       setLoading(false);

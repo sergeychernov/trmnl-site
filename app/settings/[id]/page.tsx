@@ -72,7 +72,6 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idParam]);
 
   useEffect(() => {
@@ -83,7 +82,6 @@ export default function SettingsPage() {
       setPluginSettingsText(JSON.stringify(p.defaultSettings, null, 2));
       setPluginSettingsError("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pluginId, initializing]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

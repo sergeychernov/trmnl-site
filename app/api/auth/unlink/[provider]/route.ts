@@ -15,9 +15,10 @@ export async function POST(
   const { provider } = await context.params;
   const db = await getDb();
   const accounts = db.collection("accounts");
+  const userId = session.user.id as string;
   const res = await accounts.deleteOne({
     provider,
-    userId: new ObjectId((session.user as any).id),
+    userId: new ObjectId(userId),
   });
 
   return NextResponse.json({ ok: true, deleted: res.deletedCount ?? 0 });
