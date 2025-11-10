@@ -10,7 +10,6 @@ const navItems = [
   { href: "/", label: "Главная" },
   { href: "/plugins", label: "Список плагинов" },
   { href: "/auth", label: "Вход/Выход" },
-  { href: "/devices", label: "Устройства" },
 ];
 
 export default function Header() {
