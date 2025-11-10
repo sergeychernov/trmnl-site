@@ -1,5 +1,6 @@
 import type { Orientation, Plugin } from "../types";
 import type { UserSettings } from "@/lib/settings";
+import { drawCanvasTextToBuffer, measureCanvasText } from "@lib/canvasText";
 
 type CalendarSettings = {
 	orientation: Orientation;
@@ -14,28 +15,6 @@ function validate(value: unknown): value is CalendarSettings {
 	const orientationOk = v.orientation === "landscape" || v.orientation === "portrait";
 	return orientationOk !== false && typeof v.drawBorder === "boolean" && typeof v.showMac === "boolean";
 }
-
-// 5x7 моноширинный шрифт (цифры и дефис)
-const FONT_5x7: Record<string, number[]> = {
-	"0": [0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110],
-	"1": [0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110],
-	"2": [0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111],
-	"3": [0b01110, 0b10001, 0b00001, 0b00110, 0b00001, 0b10001, 0b01110],
-	"4": [0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010],
-	"5": [0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110],
-	"6": [0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110],
-	"7": [0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000],
-	"8": [0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110],
-	"9": [0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100],
-	"A": [0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001],
-	"B": [0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110],
-	"C": [0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111],
-	"D": [0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110],
-	"E": [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111],
-	"F": [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000],
-	"-": [0b00000, 0b00000, 0b00000, 0b01110, 0b00000, 0b00000, 0b00000],
-	" ": [0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000],
-};
 
 function createMonochromeBuffer(width: number, height: number): Uint8Array {
 	const bytesPerRow = Math.ceil(width / 8);
@@ -58,50 +37,6 @@ function drawBorder(data: Uint8Array, width: number, height: number) {
 	for (let y = 0; y < height; y++) {
 		setPixelBlackPacked(data, width, height, 0, y);
 		setPixelBlackPacked(data, width, height, width - 1, y);
-	}
-}
-
-function drawGlyph(
-	data: Uint8Array,
-	width: number,
-	height: number,
-	glyph: number[],
-	x: number,
-	yTop: number,
-	scale: number,
-) {
-	const glyphHeight = 7;
-	const glyphWidth = 5;
-	for (let gy = 0; gy < glyphHeight; gy++) {
-		const rowBits = glyph[gy] ?? 0;
-		for (let gx = 0; gx < glyphWidth; gx++) {
-			const bitOn = (rowBits & (1 << (glyphWidth - 1 - gx))) !== 0;
-			if (!bitOn) continue;
-			for (let sy = 0; sy < scale; sy++) {
-				for (let sx = 0; sx < scale; sx++) {
-					setPixelBlackPacked(data, width, height, x + gx * scale + sx, yTop + gy * scale + sy);
-				}
-			}
-		}
-	}
-}
-
-function drawText(
-	data: Uint8Array,
-	width: number,
-	height: number,
-	text: string,
-	x: number,
-	yTop: number,
-	scale: number,
-) {
-	const glyphAdvance = 5 * scale;
-	const letterSpacing = scale;
-	let cursorX = x;
-	for (const ch of text) {
-		const g = FONT_5x7[ch] ?? FONT_5x7[" "];
-		drawGlyph(data, width, height, g, cursorX, yTop, scale);
-		cursorX += glyphAdvance + letterSpacing;
 	}
 }
 
@@ -136,77 +71,70 @@ const calendar: Plugin<CalendarSettings> = {
 		const dd = String(now.getDate()).padStart(2, "0");
 		const dateText = `${yyyy}-${mm}-${dd}`;
 
-		// Рассчёт в landscape, с возможным маппингом координат под portrait
-		const scale = 6; // 5x7 -> 30x42
-		const glyphAdvance = 5 * scale + scale;
-		const textWidth = dateText.length * glyphAdvance - scale;
-		const textHeight = 7 * scale;
-		const startX = Math.max(2, Math.floor((width - textWidth) / 2));
-		const startY = Math.max(2, Math.floor((height - textHeight) / 2));
+		// Подбор размеров для canvas-шрифта
+		const margin = 8;
+		const maxTextW = width - margin * 2;
+		const maxTextH = height - margin * 2;
+		let fontSize = Math.floor(height * 0.25);
+		let dateOpts = { fontFamily: "monospace", fontSize, fontWeight: "normal", thresholdAlpha: 64 };
+		let dm = measureCanvasText(dateText, dateOpts);
+		while ((dm.width > maxTextW || dm.height > maxTextH) && fontSize > 8) {
+			fontSize -= 2;
+			dateOpts = { ...dateOpts, fontSize };
+			dm = measureCanvasText(dateText, dateOpts);
+		}
+		const startX = Math.max(2, Math.floor((width - dm.width) / 2));
+		const startY = Math.max(2, Math.floor((height - dm.height) / 2));
 
 		if (device.orientation === "portrait") {
-			// Рисуем в портретном виде: маппим каждую точку
-			// Рендерим по символу, но пиксели ставим с поворотом
-			let cursorX = startX;
-			const text = dateText;
-			for (const ch of text) {
-				const g = FONT_5x7[ch] ?? FONT_5x7[" "];
-				for (let gy = 0; gy < 7; gy++) {
-					const rowBits = g[gy] ?? 0;
-					for (let gx = 0; gx < 5; gx++) {
-						const bitOn = (rowBits & (1 << (5 - 1 - gx))) !== 0;
-						if (!bitOn) continue;
-						for (let sy = 0; sy < scale; sy++) {
-							for (let sx = 0; sx < scale; sx++) {
-								const x = cursorX + gx * scale + sx;
-								const y = startY + gy * scale + sy;
-								const p = rotatePointForPortrait(x, y, width, height);
-								setPixelBlackPacked(data, width, height, p.x, p.y);
-							}
-						}
-					}
+			// Рендер в temp-буфер и поворот пикселей
+			const temp = createMonochromeBuffer(width, height);
+			drawCanvasTextToBuffer({ data: temp, width, height }, dateText, startX, startY, dateOpts);
+			const bytesPerRow = Math.ceil(width / 8);
+			for (let y = 0; y < height; y++) {
+				for (let x = 0; x < width; x++) {
+					const byteIndex = y * bytesPerRow + (x >> 3);
+					const mask = 0x80 >> (x & 7);
+					if ((temp[byteIndex] & mask) === 0) continue;
+					const p = rotatePointForPortrait(x, y, width, height);
+					setPixelBlackPacked(data, width, height, p.x, p.y);
 				}
-				cursorX += glyphAdvance;
 			}
 		} else {
 			// Обычный landscape
-			drawText(data, width, height, dateText, startX, startY, scale);
+			drawCanvasTextToBuffer({ data, width, height }, dateText, startX, startY, dateOpts);
 		}
 
 		// MAC снизу по центру (если доступен)
 		if (device.showMac && device.macHex && device.macHex.length === 12) {
 			const groups = device.macHex.match(/.{1,2}/g) as string[];
 			const macText = groups.join("-");
-			const macScale = 4;
-			const macAdvance = 5 * macScale + macScale;
-			const macWidth = macText.length * macAdvance - macScale;
-			const macHeight = 7 * macScale;
-			const macX = Math.max(2, Math.floor((width - macWidth) / 2));
-			const macY = Math.max(2, height - macHeight - 8);
+			let macFont = Math.max(8, Math.floor(height * 0.04));
+			let macOpts = { fontFamily: "monospace", fontSize: macFont, fontWeight: "normal", thresholdAlpha: 64 };
+			let mm = measureCanvasText(macText, macOpts);
+			while (mm.width > maxTextW && macFont > 6) {
+				macFont -= 1;
+				macOpts = { ...macOpts, fontSize: macFont };
+				mm = measureCanvasText(macText, macOpts);
+			}
+			const macX = Math.max(2, Math.floor((width - mm.width) / 2));
+			const macY = Math.max(2, height - mm.height - 8);
 
 			if (device.orientation === "portrait") {
-				let cursorX = macX;
-				for (const ch of macText) {
-					const g = FONT_5x7[ch] ?? FONT_5x7[" "];
-					for (let gy = 0; gy < 7; gy++) {
-						const rowBits = g[gy] ?? 0;
-						for (let gx = 0; gx < 5; gx++) {
-							const bitOn = (rowBits & (1 << (5 - 1 - gx))) !== 0;
-							if (!bitOn) continue;
-							for (let sy = 0; sy < macScale; sy++) {
-								for (let sx = 0; sx < macScale; sx++) {
-                                    const x = cursorX + gx * macScale + sx;
-                                    const y = macY + gy * macScale + sy;
-                                    const p = rotatePointForPortrait(x, y, width, height);
-                                    setPixelBlackPacked(data, width, height, p.x, p.y);
-								}
-							}
-						}
+				const temp = createMonochromeBuffer(width, height);
+				drawCanvasTextToBuffer({ data: temp, width, height }, macText, macX, macY, macOpts);
+				const bytesPerRow = Math.ceil(width / 8);
+				for (let y = 0; y < height; y++) {
+					for (let x = 0; x < width; x++) {
+						const byteIndex = y * bytesPerRow + (x >> 3);
+						const mask = 0x80 >> (x & 7);
+						if ((temp[byteIndex] & mask) === 0) continue;
+						const p = rotatePointForPortrait(x, y, width, height);
+						setPixelBlackPacked(data, width, height, p.x, p.y);
 					}
-					cursorX += macAdvance;
 				}
 			} else {
-				drawText(data, width, height, macText, macX, macY, macScale);
+				drawCanvasTextToBuffer({ data, width, height }, macText, macX, macY, macOpts);
 			}
 		}
 

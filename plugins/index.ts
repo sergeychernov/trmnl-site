@@ -1,19 +1,20 @@
 import type { Plugin } from "./types";
 
 // Реестр плагинов. Добавляйте новые плагины сюда.
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import hello from "./hello";
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import calendar from "./calendar";
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import registration from "./registration";
+import symbols from "./supported-symbols";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const registry: Record<string, Plugin<any>> = {
 	[hello.id]: hello,
 	[calendar.id]: calendar,
 	[registration.id]: registration,
+	[symbols.id]: symbols,
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function listPlugins(): Plugin<any>[] {
 	return Object.values(registry);
 }

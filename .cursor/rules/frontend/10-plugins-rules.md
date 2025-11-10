@@ -33,4 +33,22 @@
 - Детерминизм: `render` должен быть чистым относительно входных данных.
 - Кросс‑платформенность: не использовать Node‑специфику в плагинах, если они вызываются в браузере.
 
+### Рендер текста (canvasText)
+- Используем только `@lib/canvasText` для вывода текста в монохромный буфер:
+  - Измерение: `measureCanvasText(text, opts)` вернёт `{ width, height }`.
+  - Рендер: `drawCanvasTextToBuffer({ data, width, height }, text, x, yTop, opts)`.
+  - Тип буфера: `{ data: Uint8Array; width: number; height: number }` (1 бит/пиксель, MSB→LSB).
+- Параметры `opts`:
+  - `fontFamily` (рекомендуется `"monospace"` для стабильной верстки),
+  - `fontSize` (px), `fontWeight`, `letterSpacing` (px), `thresholdAlpha` (порог альфа для бинаризации),
+  - опционально `fontPathToRegister` + `fontFamily` — для подключения кастомного TTF.
+- Подбор размера:
+  - Сначала измерить текст `measureCanvasText`, при необходимости уменьшать `fontSize`, пока он укладывается в рамки.
+  - Центрирование: вычислить `x = (width - measured.width)/2`, `y = (height - measured.height)/2` (с запасом по полям).
+- Портретная ориентация:
+  - Рендерить во временный буфер тем же API, затем переносить пиксели с поворотом (см. `plugins/calendar/index.ts`).
+- Нельзя:
+  - использовать старые утилиты bitmap‑шрифтов или собственные битовые маски глифов,
+  - напрямую писать текст в буфер, минуя `canvasText`.
+
 
