@@ -6,6 +6,7 @@ import { ensureRobotoMono } from "@lib/fonts";
 import { renderOgElementToBmp } from "@lib/ogToBmp";
 import { toMonochromeBmp } from "@lib/bmp";
 import { drawCanvasTextToBuffer, measureCanvasText, wrapTextToLines } from "@lib/canvasText";
+import { registerFont } from "canvas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -186,6 +187,14 @@ export async function GET(request: Request) {
 		// Фолбэк: прежний рендер напрямую в 1bpp packed
 		const bytesPerRow = Math.ceil(width / 8);
 		const packed = new Uint8Array(bytesPerRow * height);
+
+		// Зарегистрировать шрифты для node-canvas, если доступны
+		if (roboto.regular) {
+			try { registerFont(roboto.regular, { family: roboto.family, weight: "normal" }); } catch { }
+		}
+		if (roboto.bold) {
+			try { registerFont(roboto.bold, { family: roboto.family, weight: "bold" }); } catch { }
+		}
 
 		// Левая панель: QR
 		const leftWidthPx = Math.floor(width * leftRatio);
