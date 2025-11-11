@@ -3,6 +3,8 @@ import { toMonochromeBmp } from "@lib/bmp";
 import { getBaseUrl, parseRenderSearchParams } from "@lib/persers";
 import { drawCanvasTextToBuffer, measureCanvasText, wrapTextToLines } from "@lib/canvasText";
 import { createQrMatrix, drawQrPacked } from "@lib/qr";
+import { registerFont } from "canvas";
+import { ensureRobotoMono } from "@lib/fonts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +67,19 @@ export async function GET(request: Request) {
 	const innerTextY = textMarginPx;
 	const innerTextH = Math.max(0, height - textMarginPx * 2);
 	const textFontSize = Math.floor(height * 0.055); // крупнее шрифт
-	const opts = { fontFamily: "monospace", fontSize: textFontSize, thresholdAlpha: 64, color: "#000" as const };
+	// Гарантируем наличие и регистрацию открытого шрифта Google Roboto Mono
+	const roboto = await ensureRobotoMono();
+	if (roboto.regular) {
+		try {
+			registerFont(roboto.regular, { family: roboto.family, weight: "normal" });
+		} catch { }
+	}
+	if (roboto.bold) {
+		try {
+			registerFont(roboto.bold, { family: roboto.family, weight: "bold" });
+		} catch { }
+	}
+	const opts = { fontFamily: roboto.family, fontSize: textFontSize, thresholdAlpha: 64, color: "#000" as const };
 	// замер для единообразия метрик (может быть использован при будущих настройках)
 	measureCanvasText("Ag", opts);
 	const lineGap = 6;
