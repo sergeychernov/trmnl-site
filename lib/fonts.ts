@@ -104,7 +104,8 @@ export async function resolveLocalFont(
 	family: string,
 	files: { regular: string; bold: string },
 ): Promise<{ regular: string; bold: string; family: string }> {
-	const base = path.resolve("./public/fonts");
+	// На Vercel используем process.cwd() для надёжного пути
+	const base = path.join(process.cwd(), "public", "fonts");
 	const regularPath = path.join(base, files.regular);
 	const boldPath = path.join(base, files.bold);
 	const okRegular = await fileExists(regularPath);
