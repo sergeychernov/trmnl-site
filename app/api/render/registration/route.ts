@@ -174,13 +174,13 @@ export async function GET(request: Request) {
 		rightPanel,
 	);
 
-	// Рендерим через OG→BMP с двойным масштабом; при ошибке шрифтов — фолбэк на canvas 1bpp
+	// Рендерим через OG→BMP с дизерингом Аткинсона; при ошибке шрифтов — фолбэк на canvas 1bpp
 	try {
-		console.log(`[registration] Render OG: size=${width}x${height} scale=2 family="${notoSans.family}"`);
+		console.log(`[registration] Render OG: size=${width}x${height} family="${notoSans.family}"`);
 		const bmpBytes = await renderOgElementToBmp(element, {
 			width,
 			height,
-			scale: 2,
+			scale: 1,
 			fonts: ogFonts,
 			gamma: 1.8,
 		});

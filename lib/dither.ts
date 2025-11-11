@@ -58,7 +58,6 @@ export async function pngBufferToPacked1bppAtkinson(
 	const gamma = options.gamma ?? 1.8;
 	// Загружаем PNG и масштабируем в нужный размер node-canvas'ом
 	const img = await loadImage(pngBuffer);
-	// Если вход больше — доваунсемплим при рисовании
 	const canvas = createCanvas(targetWidth, targetHeight);
 	const ctx = canvas.getContext("2d");
 	ctx.imageSmoothingEnabled = true;

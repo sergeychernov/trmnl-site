@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import type React from "react";
+import React from "react";
 import fs from "node:fs/promises";
 import { pngBufferToPacked1bppAtkinson } from "@lib/dither";
 import { toMonochromeBmp } from "@lib/bmp";
@@ -72,7 +72,7 @@ export async function renderOgElementToBmp(
 	options: {
 		width: number;
 		height: number;
-		scale?: number; // 1 | 2 для «doubleSizeForSharperText»
+		scale?: number; // для будущего использования (пока не реализовано)
 		fonts?: OgFontSpec[];
 		gamma?: number;
 	},
@@ -90,7 +90,15 @@ export async function renderOgElementToBmp(
 		debug: false,
 	}).arrayBuffer();
 
-	const packed = await pngBufferToPacked1bppAtkinson(Buffer.from(png), width, height, { gamma: options.gamma ?? 1.8 });
+	const packed = await pngBufferToPacked1bppAtkinson(
+		Buffer.from(png),
+		width,
+		height,
+		{
+			downscaleFrom: scale > 1 ? { width: width * scale, height: height * scale } : undefined,
+			gamma: options.gamma ?? 1.8,
+		},
+	);
 	const bmp = toMonochromeBmp({ width, height, data: packed }, { topDown: false, invert: false });
 	return bmp;
 }
