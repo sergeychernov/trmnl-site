@@ -158,6 +158,7 @@ export async function GET(request: Request) {
 				boxSizing: "border-box",
 				padding: `${pad}px`,
 				position: "relative",
+				display: "flex",
 			} as React.CSSProperties,
 		},
 		createElement(
@@ -183,18 +184,18 @@ export async function GET(request: Request) {
 	rightPanelChildren.push(
 		createElement(
 			"div",
-			{ style: { fontSize: `${baseFont}px`, fontWeight: 400 } as React.CSSProperties },
+			{ style: { fontSize: `${baseFont}px`, fontWeight: 400, display: "flex", flexDirection: "column" } as React.CSSProperties },
 			...instructionLines.map((l, i) => createElement("div", { key: i }, l)),
 		),
 	);
 	rightPanelChildren.push(
-		createElement("div", { style: { fontSize: `${baseFont}px`, fontWeight: 700 } as React.CSSProperties }, siteLine),
+		createElement("div", { style: { fontSize: `${baseFont}px`, fontWeight: 700, display: "flex" } as React.CSSProperties }, siteLine),
 	);
 	rightPanelChildren.push(
-		createElement("div", { style: { fontSize: `${baseFont}px`, fontWeight: 400 } as React.CSSProperties }, action),
+		createElement("div", { style: { fontSize: `${baseFont}px`, fontWeight: 400, display: "flex" } as React.CSSProperties }, action),
 	);
 	rightPanelChildren.push(
-		createElement("div", { style: { fontSize: `${pinFont}px`, fontWeight: 700 } as React.CSSProperties }, pinLine),
+		createElement("div", { style: { fontSize: `${pinFont}px`, fontWeight: 700, display: "flex" } as React.CSSProperties }, pinLine),
 	);
 
 	const rightPanel = createElement(
