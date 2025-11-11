@@ -54,6 +54,7 @@ const calendar: Plugin<CalendarSettings> = {
 	outputSize: { width: 800, height: 480 },
 	defaultSettings: { orientation: "landscape", drawBorder: true, showMac: true },
 	validate,
+	// Параметры пользователя и контекста не используются
 	async render(_user: UserSettings, device: CalendarSettings, _ctx: { deviceId: string | null; baseUrl: string }) {
 		const width = calendar.outputSize.width;
 		const height = calendar.outputSize.height;

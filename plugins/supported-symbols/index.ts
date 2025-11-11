@@ -25,7 +25,7 @@ const symbols: Plugin<SymbolsSettings> = {
 	outputSize: { width: 800, height: 480 },
 	defaultSettings: { orientation: "landscape" },
 	validate,
-	async render(_user: UserSettings, device: SymbolsSettings, _ctx: { deviceId: string | null; baseUrl: string }) {
+	async render(_user: UserSettings, _device: SymbolsSettings, _ctx: { deviceId: string | null; baseUrl: string }) {
 		const width = symbols.outputSize.width;
 		const height = symbols.outputSize.height;
 		const data = createMonochromeBuffer(width, height);
