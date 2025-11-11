@@ -241,14 +241,21 @@ export async function GET(request: Request) {
 				"Cache-Control": "no-cache",
 			},
 		});
-	} catch {
+	} catch (err) {
+		try {
+			console.error("[registration] OG render failed:", err);
+		} catch { /* noop */ }
 		// Фолбэк: прежний рендер напрямую в 1bpp packed
 		const bytesPerRow = Math.ceil(width / 8);
 		const packed = new Uint8Array(bytesPerRow * height);
 
 		// Зарегистрировать шрифты для node-canvas, если доступны (локальные пути работают без Fontconfig)
-		if (notoSans.regular) { try { registerFont(notoSans.regular, { family: notoSans.family, weight: "normal" }); } catch { } }
-		if (notoSans.bold) { try { registerFont(notoSans.bold, { family: notoSans.family, weight: "bold" }); } catch { } }
+		if (notoSans.regular) {
+			try { registerFont(notoSans.regular, { family: notoSans.family, weight: "normal" }); } catch (e) { try { console.error("[fonts] registerFont regular failed", e); } catch { } }
+		}
+		if (notoSans.bold) {
+			try { registerFont(notoSans.bold, { family: notoSans.family, weight: "bold" }); } catch (e) { try { console.error("[fonts] registerFont bold failed", e); } catch { } }
+		}
 		if (noto.regular) { try { registerFont(noto.regular, { family: noto.family, weight: "normal" }); } catch { } }
 		if (noto.bold) { try { registerFont(noto.bold, { family: noto.family, weight: "bold" }); } catch { } }
 		if (roboto.regular) { try { registerFont(roboto.regular, { family: roboto.family, weight: "normal" }); } catch { } }
