@@ -11,12 +11,18 @@ export type OgFontSpec =
 export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined) {
 	if (!fonts || fonts.length === 0) return [];
 	const out: Array<{ name: string; data: ArrayBuffer; weight: number; style: "normal" | "italic" }> = [];
+	function toArrayBufferStrict(src: Uint8Array | ArrayBuffer): ArrayBuffer {
+		if (src instanceof ArrayBuffer) return src;
+		const ab = new ArrayBuffer(src.byteLength);
+		new Uint8Array(ab).set(src);
+		return ab;
+	}
 	for (const f of fonts) {
 		if ("dataPath" in f) {
 			const buf = await fs.readFile(f.dataPath);
 			out.push({
 				name: f.name,
-				data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
+				data: toArrayBufferStrict(buf),
 				weight: (f.weight ?? 400) as number,
 				style: (f.style ?? "normal") as "normal" | "italic",
 			});
@@ -24,7 +30,7 @@ export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined) {
 			const arr = f.data instanceof Uint8Array ? f.data : new Uint8Array(f.data);
 			out.push({
 				name: f.name,
-				data: arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength),
+				data: toArrayBufferStrict(arr),
 				weight: (f.weight ?? 400) as number,
 				style: (f.style ?? "normal") as "normal" | "italic",
 			});
