@@ -3,40 +3,10 @@ import { getPlugin } from "@/plugins";
 import type { Settings, UserSettings } from "@/lib/settings";
 import { getDb } from "@/lib/mongodb";
 import { hashMacAddress } from "@lib/hash";
+import { getBaseUrl } from "@lib/persers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function getBaseUrl(request: Request): string {
-	const envOverride = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL;
-	if (envOverride) {
-		return envOverride.replace(/\/+$/, "");
-	}
-	const headers = request.headers;
-	const forwardedProto = headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
-	const forwardedHost = headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-	const vercelHost = headers.get("x-vercel-deployment-url")?.trim();
-	const host = forwardedHost || vercelHost || headers.get("host") || "";
-	let protocol = forwardedProto || (vercelHost ? "https" : "");
-	if (!protocol) {
-		try {
-			protocol = new URL(request.url).protocol.replace(":", "");
-		} catch {
-			protocol = "https";
-		}
-	}
-	if (!host) {
-		try {
-			return new URL(request.url).origin;
-		} catch {
-			return `${protocol}://localhost`;
-		}
-	}
-	if (host.includes("://")) {
-		return host.replace(/\/+$/, "");
-	}
-	return `${protocol}://${host}`.replace(/\/+$/, "");
-}
 
 // Возвращает монохромный BMP 800x480 (1 бит на пиксель) для Seed Studio TRMNL.
 // Палитра: индекс 0 — белый, индекс 1 — чёрный. Контент генерирует плагин.
@@ -46,6 +16,7 @@ export async function GET(request: Request) {
 	// - rotate=180 -> повернуть содержимое на 180° (размеры остаются 800x480)
 	// - topdown=1 -> записывать BMP в top-down (biHeight < 0)
 	const url = new URL(request.url);
+	//console.log(request.headers);
 	const invertBits = url.searchParams.get("invert") === "1" || url.searchParams.get("invert") === "true";
 	const rotate = url.searchParams.get("rotate") === "180" ? 180 : 0;
 	const topDown = url.searchParams.get("topdown") === "1" || url.searchParams.get("topdown") === "true";
@@ -56,6 +27,7 @@ export async function GET(request: Request) {
 	const idHeader = request.headers.get("ID")?.toUpperCase() ?? "";
 	const macRaw = idParam || idHeader;
 	const macHex = macRaw.replace(/[^A-F0-9]/g, "").slice(0, 12);
+	//console.log(url.searchParams);
 
 	// Обеспечиваем наличие коллекции settings и проверяем запись для устройства по id = hash(MAC)
 	const db = await getDb();

@@ -87,4 +87,93 @@ export function drawCanvasTextToBuffer(
 	return { width: tw, height: th };
 }
 
+// Перенос строк по ширине с подбором размера шрифта
+export function wrapTextToLines(
+	text: string,
+	maxWidth: number,
+	opts: CanvasTextOptions = {},
+	params: { maxLines?: number; minFontSize?: number } = {},
+) {
+	const maxLines = params.maxLines ?? 5;
+	const minFontSize = params.minFontSize ?? 10;
+
+	let fontSize = Math.max(minFontSize, Math.floor(opts.fontSize ?? 24));
+	let lines: string[] = [];
+
+	function measure(s: string, fs: number) {
+		return measureCanvasText(s, { ...opts, fontSize: fs }).width;
+	}
+	function doWrap(fs: number): string[] {
+		const words = text.split(" ");
+		const out: string[] = [];
+		let current = "";
+		for (const w of words) {
+			const candidate = current ? `${current} ${w}` : w;
+			if (measure(candidate, fs) <= maxWidth) {
+				current = candidate;
+			} else {
+				if (current) out.push(current);
+				current = w;
+			}
+		}
+		if (current) out.push(current);
+		return out;
+	}
+
+	lines = doWrap(fontSize);
+	while (lines.length > maxLines && fontSize > minFontSize) {
+		fontSize -= 1;
+		lines = doWrap(fontSize);
+	}
+	const lineHeight = Math.floor(fontSize * 1.3);
+	return { lines, fontSize, lineHeight };
+}
+
+// Многострочный вывод текста непосредственно в 1bpp буфер с переносами по maxWidth
+export function drawMultilineCanvasTextToBuffer(
+	buffer: MonoBuffer,
+	text: string,
+	x: number,
+	yTop: number,
+	maxWidth: number,
+	opts: CanvasTextOptions = {},
+	params: { lineGap?: number; maxLines?: number } = {},
+) {
+	const maxLines = params.maxLines ?? 5;
+	const lineGap = params.lineGap ?? 0; // дополнительный отступ между строками
+	const fontSize = Math.max(1, Math.floor(opts.fontSize ?? 24));
+
+	// Разбиваем на строки по словам, учитывая maxWidth
+	const words = text.split(" ");
+	const lines: string[] = [];
+	let current = "";
+	for (const w of words) {
+		const candidate = current ? `${current} ${w}` : w;
+		const wWidth = measureCanvasText(candidate, { ...opts, fontSize }).width;
+		if (wWidth <= maxWidth) {
+			current = candidate;
+		} else {
+			if (current) lines.push(current);
+			current = w;
+			if (lines.length >= maxLines) break;
+		}
+	}
+	if (lines.length < maxLines && current) {
+		lines.push(current);
+	}
+
+	// Высота строки по метрикам шрифта
+	const metrics = measureCanvasText("Ag", { ...opts, fontSize });
+	const lineHeight = Math.max(metrics.height, Math.floor(fontSize * 1.3));
+
+	// Рисуем построчно в packed-буфер
+	let cursorY = yTop;
+	for (let i = 0; i < lines.length; i++) {
+		drawCanvasTextToBuffer(buffer, lines[i], x, cursorY, { ...opts, fontSize });
+		cursorY += lineHeight + lineGap;
+		if (cursorY >= buffer.height) break;
+	}
+	return { lines, lineHeight };
+}
+
 

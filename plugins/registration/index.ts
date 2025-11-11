@@ -1,6 +1,6 @@
 import type { Orientation, Plugin } from "../types";
 import type { UserSettings } from "@/lib/settings";
-import { create as createQr } from "qrcode";
+import { createQrMatrix, computeQrLayout, drawQrPacked } from "@/lib/qr";
 
 type RegistrationSettings = {
 	orientation: Orientation;
@@ -54,22 +54,12 @@ const registration: Plugin<RegistrationSettings> = {
 		const url = `${base}/settings${idPath}`;
 
 		// Генерация QR матрицы
-		type QRModel = { modules: { size: number; data: Uint8Array | boolean[] } };
-		const qr = createQr(url, { errorCorrectionLevel: "M" }) as unknown as QRModel;
-		const size = qr.modules.size;
-		const modules = qr.modules.data as Uint8Array | boolean[];
-		const getModuleDark = (idx: number): boolean =>
-			Array.isArray(modules) ? Boolean((modules as boolean[])[idx]) : (modules as Uint8Array)[idx] !== 0;
+		const matrix = createQrMatrix(url, "M");
+		const size = matrix.size;
 
 		// Рассчитываем масштаб (квадрат наибольшего размера, центрируем)
 		const marginModules = typeof device.marginModules === "number" ? Math.max(0, device.marginModules) : 4;
-		const totalModules = size + marginModules * 2;
-		const scaleX = Math.floor(width / totalModules);
-		const scaleY = Math.floor(height / totalModules);
-		const scale = Math.max(1, Math.min(scaleX, scaleY));
-		const drawSizePx = totalModules * scale;
-		const offsetX = Math.floor((width - drawSizePx) / 2) + marginModules * scale;
-		const offsetY = Math.floor((height - drawSizePx) / 2) + marginModules * scale;
+		const { scale, offsetX, offsetY } = computeQrLayout(width, height, size, marginModules);
 
 		const putPixel = (x: number, y: number) => {
 			if (device.orientation === "portrait") {
@@ -80,20 +70,13 @@ const registration: Plugin<RegistrationSettings> = {
 			}
 		};
 
-		// Рисуем QR модули
-		for (let my = 0; my < size; my++) {
-			for (let mx = 0; mx < size; mx++) {
-				const isDark = getModuleDark(my * size + mx);
-				if (!isDark) continue;
-				const startX = offsetX + mx * scale;
-				const startY = offsetY + my * scale;
-				for (let sy = 0; sy < scale; sy++) {
-					for (let sx = 0; sx < scale; sx++) {
-						putPixel(startX + sx, startY + sy);
-					}
-				}
-			}
-		}
+		// Рисуем QR модули, учитывая ориентацию
+		drawQrPacked(
+			{ data, width, height },
+			matrix,
+			{ scale, offsetX, offsetY },
+			(x, y) => putPixel(x, y),
+		);
 
 		return { width, height, data };
 	},

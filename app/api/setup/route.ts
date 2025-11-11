@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { getDb } from "@/lib/mongodb";
+import { randomBytes } from "crypto";
 
-// Handshake/регистрация устройства (упрощённый режим без БД).
-// Согласовано с BYOS-спецификацией: всегда HTTP 200, статус передаём в JSON.
+export const runtime = "nodejs";
+
+// Handshake/регистрация устройства в БД (MongoDB, коллекция devices).
+// BYOS-спецификация: всегда HTTP 200, статус в JSON.
 export async function GET(request: Request) {
-	const idHeader = request.headers.get("ID")?.toUpperCase() ?? null; // MAC
-	const apiKey = request.headers.get("Access-Token") ?? null;
+	const idHeader = request.headers.get("ID")?.toUpperCase() ?? null; // MAC адрес
 
 	if (!idHeader) {
 		return NextResponse.json(
@@ -20,17 +23,100 @@ export async function GET(request: Request) {
 		);
 	}
 
-	// В no-DB режиме просто подтверждаем, что устройство может продолжать работу.
-	// Генерацию/выдачу реального api_key не делаем, если не используем БД.
-	const friendlyId = `DEVICE_${idHeader.replace(/[^A-F0-9]/g, "")}`;
+	// Нормализуем MAC (только HEX, 12 символов)
+	const macHex = idHeader.replace(/[^A-F0-9]/g, "").slice(0, 12);
+	if (macHex.length !== 12) {
+		return NextResponse.json(
+			{
+				status: 404,
+				api_key: null,
+				friendly_id: null,
+				image_url: null,
+				filename: null,
+				message: "Invalid ID format",
+			},
+			{ status: 200 },
+		);
+	}
+
+	const db = await getDb();
+	// Создадим коллекцию при отсутствии
+	const collections = await db.listCollections({ name: "devices" }, { nameOnly: true }).toArray();
+	if (collections.length === 0) {
+		await db.createCollection("devices");
+	}
+	type DeviceDoc = {
+		friendly_id: string;
+		name: string;
+		mac_address: string;
+		api_key: string;
+		screen: string | null;
+		refresh_schedule: unknown | null;
+		timezone: string;
+		last_update_time: Date | null;
+		next_expected_update: Date | null;
+		last_refresh_duration: number | null;
+		battery_voltage: number | null;
+		firmware_version: string | null;
+		rssi: number | null;
+		created_at: Date;
+		updated_at: Date;
+	};
+	const devicesCol = db.collection<DeviceDoc>("devices");
+
+	const device: DeviceDoc | null = await devicesCol.findOne({ mac_address: macHex });
+	let isNew = false;
+	let result: DeviceDoc;
+
+	if (!device) {
+		isNew = true;
+		const apiKey = randomBytes(32).toString("hex"); // 64-символьный hex
+		const friendlyId = `DEVICE_${macHex.slice(-6)}`;
+		const now = new Date();
+		const name = `TRMNL ${macHex.slice(-4)}`;
+		const newDoc: DeviceDoc = {
+			friendly_id: friendlyId,
+			name,
+			mac_address: macHex,
+			api_key: apiKey,
+			screen: null,
+			refresh_schedule: null,
+			timezone: "UTC",
+			last_update_time: null,
+			next_expected_update: null,
+			last_refresh_duration: null,
+			battery_voltage: null,
+			firmware_version: null,
+			rssi: null,
+			created_at: now,
+			updated_at: now,
+		};
+		await devicesCol.insertOne(newDoc);
+		result = newDoc;
+	} else {
+		// Уже существует: при необходимости сгенерируем ключ, обновим updated_at
+		let apiKey = device.api_key;
+		if (!apiKey) {
+			apiKey = randomBytes(32).toString("hex");
+		}
+		const update: Partial<DeviceDoc> = {
+			api_key: apiKey,
+			updated_at: new Date(),
+		};
+		await devicesCol.updateOne({ mac_address: macHex }, { $set: update });
+		result = { ...device, ...update } as DeviceDoc;
+	}
+
+	// Не доверяем входящему Access-Token, ключ авторитетно берём из БД
+	const message = isNew ? "Device successfully registered" : "Device already registered";
 	return NextResponse.json(
 		{
 			status: 200,
-			api_key: apiKey, // если устройство прислало — подтверждаем обратно
-			friendly_id: friendlyId,
+			api_key: result.api_key,
+			friendly_id: result.friendly_id,
 			image_url: null,
 			filename: null,
-			message: "Device setup acknowledged (no-DB mode)",
+			message,
 		},
 		{ status: 200 },
 	);

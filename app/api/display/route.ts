@@ -16,6 +16,7 @@ export async function GET(request: Request) {
 	const urlProto = url.protocol.replace(":", "");
 	const proto = (request.headers.get("x-forwarded-proto") ?? urlProto) || "https";
 	const base = `${proto}://${host}`;
+	//console.log(request.headers);
 
 	const mac = request.headers.get("ID")?.toUpperCase() ?? "UNKNOWN";
 	const macClean = mac.replace(/[^A-F0-9]/g, "");
