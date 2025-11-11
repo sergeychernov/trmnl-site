@@ -214,7 +214,9 @@ export async function GET(request: Request) {
 		const innerTextW = Math.max(0, width - rightX0 - pad * 2);
 		const innerTextY = pad;
 		const innerTextH = Math.max(0, height - pad * 2);
-		const opts = { fontFamily: `${roboto.family}, ${noto.family}, monospace`, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
+		// Для node-canvas используем ОДНУ зарегистрированную семью, без списка через запятую
+		const fallbackFamily = noto.regular ? noto.family : (roboto.regular ? roboto.family : "monospace");
+		const opts = { fontFamily: fallbackFamily, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
 		measureCanvasText("Ag", opts);
 
 		// Перенос строк и вычисление высот
