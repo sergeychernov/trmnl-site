@@ -1,4 +1,5 @@
 import { create as createQr } from "qrcode";
+import React from "react";
 
 export type QrMatrix = {
 	size: number;
@@ -73,6 +74,59 @@ export function drawQrTextToPackedBuffer(
 	const layout = computeQrLayout(buffer.width, buffer.height, matrix.size, options?.marginModules ?? 4);
 	drawQrPacked(buffer, matrix, layout);
 	return { matrix, layout };
+}
+
+// Генерация React элементов для QR-кода в SVG формате
+export function createQrSvgElements(
+	text: string,
+	size: number,
+	options?: {
+		marginModules?: number;
+		errorCorrectionLevel?: "L" | "M" | "Q" | "H";
+		fgColor?: string;
+		bgColor?: string;
+	},
+): { elements: React.ReactNode[]; svgSize: number } {
+	const matrix = createQrMatrix(text, options?.errorCorrectionLevel ?? "M");
+	const marginModules = options?.marginModules ?? 4;
+	const totalModules = matrix.size + marginModules * 2;
+	const moduleSize = Math.max(1, Math.floor(size / totalModules));
+	const qrDrawSize = totalModules * moduleSize;
+	const qrOffsetX = Math.floor((size - qrDrawSize) / 2) + marginModules * moduleSize;
+	const qrOffsetY = Math.floor((size - qrDrawSize) / 2) + marginModules * moduleSize;
+
+	const fgColor = options?.fgColor ?? "#000000";
+	const bgColor = options?.bgColor ?? "#FFFFFF";
+
+	const elements: React.ReactNode[] = [
+		React.createElement("rect", {
+			key: "bg",
+			x: 0,
+			y: 0,
+			width: size,
+			height: size,
+			fill: bgColor,
+		}),
+	];
+
+	for (let y = 0; y < matrix.size; y++) {
+		for (let x = 0; x < matrix.size; x++) {
+			if (matrix.isDark(y * matrix.size + x)) {
+				elements.push(
+					React.createElement("rect", {
+						key: `qr-${x}-${y}`,
+						x: qrOffsetX + x * moduleSize,
+						y: qrOffsetY + y * moduleSize,
+						width: moduleSize,
+						height: moduleSize,
+						fill: fgColor,
+					}),
+				);
+			}
+		}
+	}
+
+	return { elements, svgSize: size };
 }
 
 

@@ -11,16 +11,16 @@
     "postinstall": "simple-git-hooks"
   },
   "dependencies": {
+    "@auth/mongodb-adapter": "^3.7.1",
     "@vercel/functions": "^3.3.0",
+    "bcryptjs": "^2.4.3",
     "canvas": "^3.2.0",
     "mongodb": "^6.20.0",
-    "next-auth": "5.0.0-beta.30",
     "next": "15.5.4",
+    "next-auth": "5.0.0-beta.30",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "@auth/mongodb-adapter": "^3.7.1",
-    "bcryptjs": "^2.4.3"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -30,9 +30,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
+    "simple-git-hooks": "^2.10.0",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "simple-git-hooks": "^2.10.0"
+    "typescript": "^5"
   },
   "simple-git-hooks": {
     "pre-commit": "yarn type-check && yarn lint"

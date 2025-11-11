@@ -1,34 +1,39 @@
 import React from "react";
+import { createQrSvgElements } from "@lib/qr";
 
 interface RegistrationScreenProps {
 	width: number;
 	height: number;
-	leftWidth: number;
-	rightRatio: number;
 	pad: number;
-	lineGap: number;
 	notoSans: { family: string };
-	rects: React.ReactNode[];
+	qr: string;
 	siteLine: string;
 	pinLine: string;
-	baseFont: number;
-	pinFont: number;
 }
 
 export function RegistrationScreen({
 	width,
 	height,
-	leftWidth,
-	rightRatio,
 	pad,
-	lineGap,
 	notoSans,
-	rects,
+	qr,
 	siteLine,
 	pinLine,
-	baseFont,
-	pinFont,
 }: RegistrationScreenProps) {
+	// Левая панель занимает 2/5 от общей ширины (flex: 2 из 2+3)
+	const leftWidth = Math.floor(width * 0.4);
+	const availQrW = Math.max(0, leftWidth - pad * 2);
+	const availQrH = Math.max(0, height - pad * 2);
+	const qrSize = Math.min(availQrW, availQrH);
+
+	// Генерируем QR-код элементы
+	const { elements: qrElements, svgSize } = createQrSvgElements(qr, qrSize, {
+		marginModules: 4,
+		errorCorrectionLevel: "M",
+		fgColor: "#000000",
+		bgColor: "#FFFFFF",
+	});
+
 	return (
 		<div
 			style={{
@@ -44,43 +49,44 @@ export function RegistrationScreen({
 			{/* Левая панель: QR код */}
 			<div
 				style={{
-					width: `${leftWidth}px`,
+					flex: 2,
 					height: "100%",
 					boxSizing: "border-box",
 					padding: `${pad}px`,
 					position: "relative",
 					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
 				}}
 			>
 				<svg
-					width={leftWidth}
-					height={height}
-					viewBox={`0 0 ${leftWidth} ${height}`}
+					width={svgSize}
+					height={svgSize}
+					viewBox={`0 0 ${svgSize} ${svgSize}`}
 					xmlns="http://www.w3.org/2000/svg"
 				>
-					<rect x={0} y={0} width={leftWidth} height={height} fill="#fff" />
-					{rects}
+					{qrElements}
 				</svg>
 			</div>
 
 			{/* Правая панель: текст */}
 			<div
 				style={{
-					width: `${Math.floor(width * rightRatio)}px`,
+					flex: 3,
 					height: "100%",
 					boxSizing: "border-box",
 					padding: `${pad}px`,
 					display: "flex",
 					flexDirection: "column",
 					justifyContent: "center",
-					gap: `${lineGap}px`,
+					gap: `6px`,
 					textAlign: "center",
 				}}
 			>
 				{/* Инструкции */}
 				<div
 					style={{
-						fontSize: `${baseFont}px`,
+						fontSize: `24`,
 						fontWeight: 400,
 						display: "flex",
 						flexDirection: "column",
@@ -92,7 +98,7 @@ export function RegistrationScreen({
 					<div style={{ display: "flex" }}>перейдите по ссылке</div>
 					<div style={{ display: "flex" }}><b>{siteLine}</b></div>
 					<div style={{ display: "flex" }}>зарегистрируйтесь и добавьте устройство по следующему пинкоду:</div>
-					<div style={{ display: "flex", fontSize: `${pinFont}px` }}><b>{pinLine}</b></div>
+					<div style={{ display: "flex", fontSize: `44` }}><b>{pinLine}</b></div>
 				</div>
 
 			</div>
