@@ -25,6 +25,12 @@ export async function GET(request: Request) {
 	const origin = getBaseUrl(request);
 	const base = (origin || "").replace(/\/+$/, "");
 	const addDeviceUrl = `${base}/profile/devices/add?pin=${pin}`;
+	// Диагностика URL'ов
+	try {
+		console.log(`[registration] request.url=${request.url}`);
+		console.log(`[registration] origin=${origin} base=${base}`);
+		console.log(`[registration] addDeviceUrl=${addDeviceUrl}`);
+	} catch { /* noop */ }
 
 	// Параметры вывода
 	const { width, height } = searchParams;
@@ -53,6 +59,15 @@ export async function GET(request: Request) {
 	const ogFonts = [];
 	if (notoSans.regular) ogFonts.push({ name: notoSans.family, dataPath: notoSans.regular, weight: 400 as const, style: "normal" as const });
 	if (notoSans.bold) ogFonts.push({ name: notoSans.family, dataPath: notoSans.bold, weight: 700 as const, style: "normal" as const });
+	// Диагностика шрифтов
+	try {
+		const dump = (label: string, f: { family: string; regular: string; bold: string }) =>
+			console.log(`[fonts] ${label}: family="${f.family}" regular="${f.regular}" bold="${f.bold}"`);
+		dump("NotoSans", notoSans);
+		dump("NotoSansMono", noto);
+		dump("RobotoMono", roboto);
+		console.log(`[fonts] OG fonts count=${ogFonts.length}`);
+	} catch { /* noop */ }
 
 	// Тексты
 	const instructionLines = [`Чтобы настроить устройство, перейдите по qrcode`, `или`, `перейдите по ссылке`];
@@ -179,6 +194,7 @@ export async function GET(request: Request) {
 
 	// Рендерим через OG→BMP с двойным масштабом; при ошибке шрифтов — фолбэк на canvas 1bpp
 	try {
+		console.log(`[registration] Render OG: size=${width}x${height} scale=2 family="${notoSans.family}"`);
 		const bmpBytes = await renderOgElementToBmp(element, {
 			width,
 			height,
@@ -226,6 +242,9 @@ export async function GET(request: Request) {
 		// Для node-canvas используем ОДНУ зарегистрированную семью, без списка через запятую
 		const fallbackFamily = notoSans.regular ? notoSans.family : "sans-serif";
 		const opts = { fontFamily: fallbackFamily, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
+		try {
+			console.log(`[registration] Render canvas fallback: family="${fallbackFamily}"`);
+		} catch { /* noop */ }
 		measureCanvasText("Ag", opts);
 
 		// Перенос строк и вычисление высот
