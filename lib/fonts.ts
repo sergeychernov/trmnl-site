@@ -87,4 +87,42 @@ export async function ensureRobotoMono(): Promise<{ regular: string; bold: strin
 	}
 }
 
+/**
+ * Гарантирует наличие ttf-файлов Noto Sans Mono (Regular/Bold) в /tmp и возвращает пути.
+ * Используется как расширенная поддержка Юникода (включая кириллицу) для OG/Canvas.
+ */
+export async function ensureNotoSansMono(): Promise<{ regular: string; bold: string; family: string }> {
+	const key = "noto-sans-mono";
+	if (memoryCache[key]) return memoryCache[key];
+
+	const tmpDir = path.join("/tmp", "fonts", "noto-sans-mono");
+	const regularPath = path.join(tmpDir, "NotoSansMono-Regular.ttf");
+	const boldPath = path.join(tmpDir, "NotoSansMono-Bold.ttf");
+
+	const regularUrls = [
+		"https://raw.githubusercontent.com/google/fonts/main/ofl/notosansmono/static/NotoSansMono-Regular.ttf",
+		"https://raw.githubusercontent.com/google/fonts/main/ofl/notosansmono/NotoSansMono%5Bwght%5D.ttf",
+		"https://github.com/google/fonts/raw/main/ofl/notosansmono/static/NotoSansMono-Regular.ttf",
+	];
+	const boldUrls = [
+		"https://raw.githubusercontent.com/google/fonts/main/ofl/notosansmono/static/NotoSansMono-Bold.ttf",
+		"https://raw.githubusercontent.com/google/fonts/main/ofl/notosansmono/NotoSansMono%5Bwght%5D.ttf",
+		"https://github.com/google/fonts/raw/main/ofl/notosansmono/static/NotoSansMono-Bold.ttf",
+	];
+
+	try {
+		await Promise.all([
+			downloadFirstAvailable(regularUrls, regularPath),
+			downloadFirstAvailable(boldUrls, boldPath),
+		]);
+		const out = { regular: regularPath, bold: boldPath, family: "Noto Sans Mono" };
+		memoryCache[key] = out;
+		return out;
+	} catch {
+		const out = { regular: "", bold: "", family: "monospace" };
+		memoryCache[key] = out;
+		return out;
+	}
+}
+
 

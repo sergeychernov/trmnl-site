@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createElement } from "react";
 import { getBaseUrl, parseRenderSearchParams } from "@lib/persers";
 import { createQrMatrix, computeQrLayout, drawQrPacked } from "@lib/qr";
-import { ensureRobotoMono } from "@lib/fonts";
+import { ensureRobotoMono, ensureNotoSansMono } from "@lib/fonts";
 import { renderOgElementToBmp } from "@lib/ogToBmp";
 import { toMonochromeBmp } from "@lib/bmp";
 import { drawCanvasTextToBuffer, measureCanvasText, wrapTextToLines } from "@lib/canvasText";
@@ -38,11 +38,14 @@ export async function GET(request: Request) {
 	const rightRatio = 0.6;
 	const pad = 16;
 
-	// Подключаем Roboto Mono как шрифт для OG
+	// Подключаем шрифты для OG (Roboto Mono + Noto Sans Mono для расширенного покрытия)
 	const roboto = await ensureRobotoMono();
+	const noto = await ensureNotoSansMono();
 	const ogFonts = [];
 	if (roboto.regular) ogFonts.push({ name: roboto.family, dataPath: roboto.regular, weight: 400 as const, style: "normal" as const });
 	if (roboto.bold) ogFonts.push({ name: roboto.family, dataPath: roboto.bold, weight: 700 as const, style: "normal" as const });
+	if (noto.regular) ogFonts.push({ name: noto.family, dataPath: noto.regular, weight: 400 as const, style: "normal" as const });
+	if (noto.bold) ogFonts.push({ name: noto.family, dataPath: noto.bold, weight: 700 as const, style: "normal" as const });
 
 	// Тексты
 	const instructionLines = [`Чтобы настроить устройство, перейдите по qrcode`, `или`, `перейдите по ссылке`];
@@ -160,7 +163,7 @@ export async function GET(request: Request) {
 				flexDirection: "row",
 				background: "#fff",
 				color: "#000",
-				fontFamily: roboto.family,
+				fontFamily: `${roboto.family}, ${noto.family}, sans-serif`,
 			} as React.CSSProperties,
 		},
 		leftPanel,
@@ -189,12 +192,10 @@ export async function GET(request: Request) {
 		const packed = new Uint8Array(bytesPerRow * height);
 
 		// Зарегистрировать шрифты для node-canvas, если доступны
-		if (roboto.regular) {
-			try { registerFont(roboto.regular, { family: roboto.family, weight: "normal" }); } catch { }
-		}
-		if (roboto.bold) {
-			try { registerFont(roboto.bold, { family: roboto.family, weight: "bold" }); } catch { }
-		}
+		if (roboto.regular) { try { registerFont(roboto.regular, { family: roboto.family, weight: "normal" }); } catch { } }
+		if (roboto.bold) { try { registerFont(roboto.bold, { family: roboto.family, weight: "bold" }); } catch { } }
+		if (noto.regular) { try { registerFont(noto.regular, { family: noto.family, weight: "normal" }); } catch { } }
+		if (noto.bold) { try { registerFont(noto.bold, { family: noto.family, weight: "bold" }); } catch { } }
 
 		// Левая панель: QR
 		const leftWidthPx = Math.floor(width * leftRatio);
@@ -213,7 +214,7 @@ export async function GET(request: Request) {
 		const innerTextW = Math.max(0, width - rightX0 - pad * 2);
 		const innerTextY = pad;
 		const innerTextH = Math.max(0, height - pad * 2);
-		const opts = { fontFamily: roboto.family, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
+		const opts = { fontFamily: `${roboto.family}, ${noto.family}, monospace`, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
 		measureCanvasText("Ag", opts);
 
 		// Перенос строк и вычисление высот
