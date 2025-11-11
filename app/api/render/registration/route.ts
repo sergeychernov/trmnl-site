@@ -58,16 +58,24 @@ export async function GET(request: Request) {
 	// Если локальные файлы не найдены, попробуем подтянуть их по HTTP из /fonts и сохранить в /tmp
 	async function ensureFromPublicUrl(file: string): Promise<string> {
 		try {
-			const urlAbs = `${base}/fonts/${file}`;
+			// Убираем порт из base, если он случайно попал
+			const cleanBase = base.replace(/:443$/, "").replace(/:80$/, "");
+			const urlAbs = `${cleanBase}/fonts/${file}`;
+			console.log(`[fonts] Fetching ${urlAbs}`);
 			const res = await fetch(urlAbs);
-			if (!res.ok) return "";
+			if (!res.ok) {
+				console.log(`[fonts] Fetch failed: ${res.status} ${res.statusText}`);
+				return "";
+			}
 			const ab = await res.arrayBuffer();
 			const dir = "/tmp/fonts";
 			await (await import("node:fs/promises")).mkdir(dir, { recursive: true });
 			const p = `${dir}/${file}`;
 			await (await import("node:fs/promises")).writeFile(p, Buffer.from(ab));
+			console.log(`[fonts] Downloaded ${file} → ${p}`);
 			return p;
-		} catch {
+		} catch (err) {
+			console.log(`[fonts] ensureFromPublicUrl(${file}) error:`, err);
 			return "";
 		}
 	}
