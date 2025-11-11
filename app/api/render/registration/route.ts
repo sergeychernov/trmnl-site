@@ -7,6 +7,7 @@ import { renderOgElementToBmp } from "@lib/ogToBmp";
 import { toMonochromeBmp } from "@lib/bmp";
 import { drawCanvasTextToBuffer, measureCanvasText, wrapTextToLines } from "@lib/canvasText";
 import { registerFont } from "canvas";
+import { RegistrationScreen } from "./RegistrationScreen";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,90 +90,23 @@ export async function GET(request: Request) {
 		}
 	}
 
-	// OG React-элемент полной сцены 800x480 (без JSX)
-	const leftPanel = createElement(
-		"div",
-		{
-			style: {
-				width: `${leftWidth}px`,
-				height: "100%",
-				boxSizing: "border-box",
-				padding: `${pad}px`,
-				position: "relative",
-				display: "flex",
-			} as React.CSSProperties,
-		},
-		createElement(
-			"svg",
-			{
-				width: leftWidth,
-				height: height,
-				viewBox: `0 0 ${leftWidth} ${height}`,
-				xmlns: "http://www.w3.org/2000/svg",
-			} as unknown as React.SVGProps<SVGSVGElement>,
-			createElement("rect", {
-				x: 0,
-				y: 0,
-				width: leftWidth,
-				height: height,
-				fill: "#fff",
-			} as unknown as React.SVGProps<SVGRectElement>),
-			...rects,
-		),
-	);
-
-	const rightPanelChildren: React.ReactNode[] = [];
-	rightPanelChildren.push(
-		createElement(
-			"div",
-			{ style: { fontSize: `${baseFont}px`, fontWeight: 400, display: "flex", flexDirection: "column" } as React.CSSProperties },
-			...instructionLines.map((l, i) => createElement("div", { key: i }, l)),
-		),
-	);
-	rightPanelChildren.push(
-		createElement("div", { style: { fontSize: `${baseFont}px`, fontWeight: 700, display: "flex" } as React.CSSProperties }, siteLine),
-	);
-	rightPanelChildren.push(
-		createElement("div", { style: { fontSize: `${baseFont}px`, fontWeight: 400, display: "flex" } as React.CSSProperties }, action),
-	);
-	rightPanelChildren.push(
-		createElement("div", { style: { fontSize: `${pinFont}px`, fontWeight: 700, display: "flex" } as React.CSSProperties }, pinLine),
-	);
-
-	const rightPanel = createElement(
-		"div",
-		{
-			style: {
-				width: `${Math.floor(width * rightRatio)}px`,
-				height: "100%",
-				boxSizing: "border-box",
-				padding: `${pad}px`,
-				display: "flex",
-				flexDirection: "column",
-				justifyContent: "center",
-				gap: `${lineGap}px`,
-				textAlign: "center",
-			} as React.CSSProperties,
-		},
-		...rightPanelChildren,
-	);
-
-	const element = createElement(
-		"div",
-		{
-			style: {
-				width: `${width}px`,
-				height: `${height}px`,
-				display: "flex",
-				flexDirection: "row",
-				background: "#fff",
-				color: "#000",
-				fontFamily: notoSans.family,
-			} as React.CSSProperties,
-		},
-		leftPanel,
-		rightPanel,
-	);
+	// OG React-элемент полной сцены через компонент RegistrationScreen
+	const element = createElement(RegistrationScreen, {
+		width,
+		height,
+		leftWidth,
+		rightRatio,
+		pad,
+		lineGap,
+		notoSans,
+		rects,
+		instructionLines,
+		siteLine,
+		action,
+		pinLine,
+		baseFont,
+		pinFont,
+	});
 
 	// Рендерим через OG→BMP с дизерингом Аткинсона; при ошибке шрифтов — фолбэк на canvas 1bpp
 	try {
