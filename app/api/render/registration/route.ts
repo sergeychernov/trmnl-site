@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import { createElement } from "react";
 import { getBaseUrl, parseRenderSearchParams } from "@lib/persers";
-import { createQrMatrix, computeQrLayout, drawQrPacked } from "@lib/qr";
+import { createQrMatrix } from "@lib/qr";
 import { resolveLocalFont } from "@lib/fonts";
 import { renderOgElementToBmp } from "@lib/ogToBmp";
-import { toMonochromeBmp } from "@lib/bmp";
-import { drawCanvasTextToBuffer, measureCanvasText, wrapTextToLines } from "@lib/canvasText";
-import { registerFont } from "canvas";
 import { RegistrationScreen } from "./RegistrationScreen";
 
 export const runtime = "nodejs";
@@ -52,9 +49,7 @@ export async function GET(request: Request) {
 	if (notoSans.bold) ogFonts.push({ name: notoSans.family, dataPath: notoSans.bold, weight: 700 as const, style: "normal" as const });
 
 	// Тексты
-	const instructionLines = [`Чтобы настроить устройство, перейдите по qrcode`, `или`, `перейдите по ссылке`];
 	const siteLine = `${origin}`;
-	const action = `зарегистрируйтесь и добавьте устройство по следующему пинкоду:`;
 	const pinLine = `${pin ?? ""}`;
 	const baseFont = Math.floor(height * 0.055);
 	const pinFont = Math.floor(height * 0.09);
@@ -100,9 +95,7 @@ export async function GET(request: Request) {
 		lineGap,
 		notoSans,
 		rects,
-		instructionLines,
 		siteLine,
-		action,
 		pinLine,
 		baseFont,
 		pinFont,
@@ -126,92 +119,7 @@ export async function GET(request: Request) {
 			},
 		});
 	} catch (err) {
-		try {
-			console.error("[registration] OG render failed:", err);
-		} catch { /* noop */ }
-		// Фолбэк: прежний рендер напрямую в 1bpp packed
-		const bytesPerRow = Math.ceil(width / 8);
-		const packed = new Uint8Array(bytesPerRow * height);
-
-		// Зарегистрировать Noto Sans для node-canvas
-		if (notoSans.regular) {
-			try { registerFont(notoSans.regular, { family: notoSans.family, weight: "normal" }); } catch (e) { try { console.error("[fonts] registerFont regular failed", e); } catch { } }
-		}
-		if (notoSans.bold) {
-			try { registerFont(notoSans.bold, { family: notoSans.family, weight: "bold" }); } catch (e) { try { console.error("[fonts] registerFont bold failed", e); } catch { } }
-		}
-
-		// Левая панель: QR
-		const leftWidthPx = Math.floor(width * leftRatio);
-		const leftLayout = computeQrLayout(leftWidthPx - pad * 2, height - pad * 2, matrix.size, marginModules);
-		// смещаем в пределах левой панели
-		const shiftedLayout = {
-			scale: leftLayout.scale,
-			offsetX: pad + leftLayout.offsetX,
-			offsetY: pad + leftLayout.offsetY,
-		};
-		drawQrPacked({ data: packed, width, height }, matrix, shiftedLayout);
-
-		// Правая панель: тексты (центрирование по колонке)
-		const rightX0 = leftWidthPx;
-		const innerTextX = rightX0 + pad;
-		const innerTextW = Math.max(0, width - rightX0 - pad * 2);
-		const innerTextY = pad;
-		const innerTextH = Math.max(0, height - pad * 2);
-		// Используем Noto Sans для canvas fallback
-		const opts = { fontFamily: notoSans.family, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
-		try {
-			console.log(`[registration] Render canvas fallback: family="${notoSans.family}"`);
-		} catch { /* noop */ }
-		measureCanvasText("Ag", opts);
-
-		// Перенос строк и вычисление высот
-		const wrappedInstrArr = instructionLines.map((line) =>
-			wrapTextToLines(line, innerTextW, opts, { maxLines: 2, minFontSize: 10 }),
-		);
-		const instrFontSize = Math.min(...wrappedInstrArr.map((w) => w.fontSize));
-		const wrappedAction = wrapTextToLines(action, innerTextW, { ...opts, fontSize: instrFontSize }, { maxLines: 3, minFontSize: 10 });
-		const renderFontSize = Math.min(instrFontSize, wrappedAction.fontSize);
-
-		type LineMeta = { text: string; fontSize: number; fontWeight?: "normal" | "bold" };
-		const linesMeta: LineMeta[] = [];
-		for (const w of wrappedInstrArr) {
-			for (const l of w.lines) linesMeta.push({ text: l, fontSize: renderFontSize, fontWeight: "normal" });
-		}
-		linesMeta.push({ text: siteLine, fontSize: renderFontSize, fontWeight: "bold" });
-		for (const l of wrappedAction.lines) linesMeta.push({ text: l, fontSize: renderFontSize, fontWeight: "normal" });
-		linesMeta.push({ text: pinLine, fontSize: pinFont, fontWeight: "bold" });
-
-		const lineHeights = linesMeta.map((lm) => {
-			const m = measureCanvasText("Ag", { ...opts, fontSize: lm.fontSize, fontWeight: lm.fontWeight ?? "normal" });
-			return Math.max(m.height, Math.floor(lm.fontSize * 1.3));
-		});
-		const totalHeight = lineHeights.reduce((a, b) => a + b, 0) + Math.max(0, linesMeta.length - 1) * lineGap;
-		let startY = innerTextY + Math.max(0, Math.floor((innerTextH - totalHeight) / 2));
-		for (let i = 0; i < linesMeta.length; i++) {
-			const lm = linesMeta[i];
-			const widthPx = measureCanvasText(lm.text, { ...opts, fontSize: lm.fontSize, fontWeight: lm.fontWeight ?? "normal" }).width;
-			const x = innerTextX + Math.max(0, Math.floor((innerTextW - widthPx) / 2));
-			drawCanvasTextToBuffer(
-				{ data: packed, width, height },
-				lm.text,
-				x,
-				startY,
-				{ ...opts, fontSize: lm.fontSize, fontWeight: lm.fontWeight ?? "normal" },
-			);
-			if (i < linesMeta.length - 1) {
-				startY += lineHeights[i] + lineGap;
-			}
-		}
-
-		const bmpBytes = toMonochromeBmp({ width, height, data: packed }, { topDown: false, invert: false });
-		return new NextResponse(new Uint8Array(bmpBytes).buffer, {
-			headers: {
-				"Content-Type": "image/bmp",
-				"Content-Length": String(bmpBytes.length),
-				"Cache-Control": "no-cache",
-			},
-		});
+		console.error("[registration] OG render failed:", err);
 	}
 }
 
