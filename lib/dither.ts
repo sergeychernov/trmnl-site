@@ -62,7 +62,10 @@ export async function pngBufferToPacked1bppAtkinson(
 	const canvas = createCanvas(targetWidth, targetHeight);
 	const ctx = canvas.getContext("2d");
 	ctx.imageSmoothingEnabled = true;
-	ctx.imageSmoothingQuality = "high";
+	// node-canvas типы могут не содержать imageSmoothingQuality — выставляем опционально
+	if ((ctx as unknown as { imageSmoothingQuality?: "low" | "medium" | "high" }).imageSmoothingQuality !== undefined) {
+		(ctx as unknown as { imageSmoothingQuality?: "low" | "medium" | "high" }).imageSmoothingQuality = "high";
+	}
 	ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 	const { data } = ctx.getImageData(0, 0, targetWidth, targetHeight);
 	const gray = new Float32Array(targetWidth * targetHeight);
