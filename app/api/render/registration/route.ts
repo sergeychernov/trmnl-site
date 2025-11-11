@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 	const packed = new Uint8Array(bytesPerRow * height); // заполнен нулями = белый
 
 	// Левая половина: QR с полями 16px
-	const leftWidth = Math.floor(width / 2);
+	const leftWidth = Math.floor((width * 2) / 5); // 2:3 — левая часть 40% ширины
 	const qrMarginPx = 16;
 	const availQrW = Math.max(0, leftWidth - qrMarginPx * 2);
 	const availQrH = Math.max(0, height - qrMarginPx * 2);
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 	drawQrPacked({ data: packed, width, height }, matrix, layout);
 	// Текст-пояснение (правая половина, поля 16px)
 	const instructionLines = [
-		`Чтобы настройить устройство, перейдите по qrcode`,
+		`Чтобы настроить устройство, перейдите по qrcode`,
 		`или`,
 		`перейдите по ссылке`,
 	];
