@@ -77,6 +77,16 @@ export async function GET(request: Request) {
 	if (!noto.bold) noto.bold = await ensureFromPublicUrl("NotoSansMono-Bold.ttf");
 	if (!roboto.regular) roboto.regular = await ensureFromPublicUrl("RobotoMono-Regular.ttf");
 	if (!roboto.bold) roboto.bold = await ensureFromPublicUrl("RobotoMono-Bold.ttf");
+	// Если файлы появились, убедимся что имя семейства корректное (а не generic)
+	if ((notoSans.regular || notoSans.bold) && notoSans.family !== "Noto Sans") {
+		notoSans.family = "Noto Sans";
+	}
+	if ((noto.regular || noto.bold) && noto.family !== "Noto Sans Mono") {
+		noto.family = "Noto Sans Mono";
+	}
+	if ((roboto.regular || roboto.bold) && roboto.family !== "Roboto Mono") {
+		roboto.family = "Roboto Mono";
+	}
 	// Для надёжности используем одно семейство в OG (Noto Sans)
 	const ogFonts = [];
 	if (notoSans.regular) ogFonts.push({ name: notoSans.family, dataPath: notoSans.regular, weight: 400 as const, style: "normal" as const });
