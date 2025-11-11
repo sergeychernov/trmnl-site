@@ -1,5 +1,4 @@
 import { ImageResponse } from "next/og";
-import type { FontOptions } from "next/og";
 import type React from "react";
 import fs from "node:fs/promises";
 import { pngBufferToPacked1bppAtkinson } from "@lib/dither";
@@ -9,9 +8,16 @@ export type OgFontSpec =
 	| { name: string; dataPath: string; weight?: number; style?: "normal" | "italic" }
 	| { name: string; data: ArrayBuffer | Uint8Array; weight?: number; style?: "normal" | "italic" };
 
-export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined): Promise<FontOptions[]> {
+type CompatibleFontOption = {
+	name: string;
+	data: ArrayBuffer;
+	weight?: number | string;
+	style?: "normal" | "italic";
+};
+
+export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined): Promise<CompatibleFontOption[]> {
 	if (!fonts || fonts.length === 0) return [];
-	const out: FontOptions[] = [];
+	const out: CompatibleFontOption[] = [];
 	function toArrayBufferStrict(src: Uint8Array | ArrayBuffer): ArrayBuffer {
 		if (src instanceof ArrayBuffer) return src;
 		const ab = new ArrayBuffer(src.byteLength);
@@ -24,16 +30,16 @@ export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined): Promise
 			out.push({
 				name: f.name,
 				data: toArrayBufferStrict(buf),
-				weight: (f.weight ?? 400) as unknown as FontOptions["weight"],
-				style: (f.style ?? "normal") as FontOptions["style"],
+				weight: f.weight ?? 400,
+				style: (f.style ?? "normal"),
 			});
 		} else {
 			const arr = f.data instanceof Uint8Array ? f.data : new Uint8Array(f.data);
 			out.push({
 				name: f.name,
 				data: toArrayBufferStrict(arr),
-				weight: (f.weight ?? 400) as unknown as FontOptions["weight"],
-				style: (f.style ?? "normal") as FontOptions["style"],
+				weight: f.weight ?? 400,
+				style: (f.style ?? "normal"),
 			});
 		}
 	}
@@ -58,7 +64,8 @@ export async function renderOgElementToBmp(
 	const png = await new ImageResponse(element, {
 		width: width * scale,
 		height: height * scale,
-		fonts: ogFonts,
+		// Приведение для совместимости с типами next/og разных версий
+		fonts: ogFonts as unknown as any,
 		debug: false,
 	}).arrayBuffer();
 
