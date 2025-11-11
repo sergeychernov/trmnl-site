@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { toMonochromeBmp } from "@lib/bmp";
+import { createElement } from "react";
 import { getBaseUrl, parseRenderSearchParams } from "@lib/persers";
-import { drawCanvasTextToBuffer, measureCanvasText, wrapTextToLines } from "@lib/canvasText";
-import { createQrMatrix, drawQrPacked } from "@lib/qr";
-import { registerFont } from "canvas";
+import { createQrMatrix, computeQrLayout, drawQrPacked } from "@lib/qr";
 import { ensureRobotoMono } from "@lib/fonts";
+import { renderOgElementToBmp } from "@lib/ogToBmp";
+import { toMonochromeBmp } from "@lib/bmp";
+import { drawCanvasTextToBuffer, measureCanvasText, wrapTextToLines } from "@lib/canvasText";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,126 +19,241 @@ export async function GET(request: Request) {
 		return NextResponse.json({ error: "invalid or missing parameters (mac, ts, width, height, rotate)" }, { status: 400 });
 	}
 	const searchParams = { ...parsed, pin };
-	// Параметры совместимости по умолчанию для регистрационного экрана
-	const topDown = false;
 
 	// Базовый URL и ссылка для QR: {baseUrl}/settings/{deviceId?}
 	const origin = getBaseUrl(request);
 	const base = (origin || "").replace(/\/+$/, "");
 	const addDeviceUrl = `${base}/profile/devices/add?pin=${pin}`;
 
-	// Параметры вывода и буфер 1bpp (packed)
+	// Параметры вывода
 	const { width, height } = searchParams;
-	// Создаём packed-буфер (белый фон)
-	const bytesPerRow = Math.ceil(width / 8);
-	const packed = new Uint8Array(bytesPerRow * height); // заполнен нулями = белый
 
-	// Левая половина: QR с полями 16px
-	const leftWidth = Math.floor((width * 2) / 5); // 2:3 — левая часть 40% ширины
-	const qrMarginPx = 16;
-	const availQrW = Math.max(0, leftWidth - qrMarginPx * 2);
-	const availQrH = Math.max(0, height - qrMarginPx * 2);
+	// Генерируем QR-матрицу
 	const matrix = createQrMatrix(addDeviceUrl, "M");
 	const marginModules = 4;
 	const totalModules = matrix.size + marginModules * 2;
-	const scale = Math.max(1, Math.min(Math.floor(availQrW / totalModules), Math.floor(availQrH / totalModules)));
-	const drawSizePx = totalModules * scale;
-	const baseOffsetX = qrMarginPx + Math.floor((availQrW - drawSizePx) / 2);
-	const baseOffsetY = qrMarginPx + Math.floor((availQrH - drawSizePx) / 2);
-	// смещение начала модулей (учитывая белую окантовку в модулях)
-	const layout = {
-		scale,
-		offsetX: baseOffsetX + marginModules * scale,
-		offsetY: baseOffsetY + marginModules * scale,
-	};
-	drawQrPacked({ data: packed, width, height }, matrix, layout);
-	// Текст-пояснение (правая половина, поля 16px)
-	const instructionLines = [
-		`Чтобы настроить устройство, перейдите по qrcode`,
-		`или`,
-		`перейдите по ссылке`,
-	];
+	// Относительная раскладка: левая часть 40% (QR), правая 60% (текст)
+	const leftRatio = 0.4;
+	const rightRatio = 0.6;
+	const pad = 16;
+
+	// Подключаем Roboto Mono как шрифт для OG
+	const roboto = await ensureRobotoMono();
+	const ogFonts = [];
+	if (roboto.regular) ogFonts.push({ name: roboto.family, dataPath: roboto.regular, weight: 400 as const, style: "normal" as const });
+	if (roboto.bold) ogFonts.push({ name: roboto.family, dataPath: roboto.bold, weight: 700 as const, style: "normal" as const });
+
+	// Тексты
+	const instructionLines = [`Чтобы настроить устройство, перейдите по qrcode`, `или`, `перейдите по ссылке`];
 	const siteLine = `${origin}`;
 	const action = `зарегистрируйтесь и добавьте устройство по следующему пинкоду:`;
 	const pinLine = `${pin ?? ""}`;
-	const rightX0 = leftWidth;
-	const textMarginPx = 16;
-	const innerTextX = rightX0 + textMarginPx;
-	const innerTextW = Math.max(0, width - rightX0 - textMarginPx * 2);
-	const innerTextY = textMarginPx;
-	const innerTextH = Math.max(0, height - textMarginPx * 2);
-	const textFontSize = Math.floor(height * 0.055); // крупнее шрифт
-	// Гарантируем наличие и регистрацию открытого шрифта Google Roboto Mono
-	const roboto = await ensureRobotoMono();
-	if (roboto.regular) {
-		try {
-			registerFont(roboto.regular, { family: roboto.family, weight: "normal" });
-		} catch { }
-	}
-	if (roboto.bold) {
-		try {
-			registerFont(roboto.bold, { family: roboto.family, weight: "bold" });
-		} catch { }
-	}
-	const opts = { fontFamily: roboto.family, fontSize: textFontSize, thresholdAlpha: 64, color: "#000" as const };
-	// замер для единообразия метрик (может быть использован при будущих настройках)
-	measureCanvasText("Ag", opts);
+	const baseFont = Math.floor(height * 0.055);
+	const pinFont = Math.floor(height * 0.09);
 	const lineGap = 6;
-	// Переносим каждую строку инструкции отдельно; сайт и пин — отдельные строки
-	const wrappedInstrArr = instructionLines.map((line) =>
-		wrapTextToLines(line, innerTextW, opts, { maxLines: 2, minFontSize: 10 }),
-	);
-	const instrFontSize = Math.min(...wrappedInstrArr.map((w) => w.fontSize));
-	const wrappedAction = wrapTextToLines(action, innerTextW, { ...opts, fontSize: instrFontSize }, { maxLines: 3, minFontSize: 10 });
-	const renderFontSize = Math.min(instrFontSize, wrappedAction.fontSize);
-	// Формируем набор строк с разными стилями:
-	// - instruction: переносимые строки, обычный стиль
-	// - site: отдельная строка, жирный
-	// - action: переносимые строки, обычный стиль
-	// - pin: отдельная строка, увеличенный шрифт
-	type LineMeta = { text: string; fontSize: number; fontWeight?: "normal" | "bold" };
-	const linesMeta: LineMeta[] = [];
-	for (const w of wrappedInstrArr) {
-		for (const l of w.lines) linesMeta.push({ text: l, fontSize: renderFontSize, fontWeight: "normal" });
-	}
-	linesMeta.push({ text: siteLine, fontSize: renderFontSize, fontWeight: "bold" });
-	for (const l of wrappedAction.lines) linesMeta.push({ text: l, fontSize: renderFontSize, fontWeight: "normal" });
-	const pinFontSize = Math.floor(height * 0.09);
-	linesMeta.push({ text: pinLine, fontSize: pinFontSize, fontWeight: "bold" });
-	// Посчитаем итоговую высоту с учётом разных высот строк
-	const lineHeights = linesMeta.map((lm) => {
-		const m = measureCanvasText("Ag", { ...opts, fontSize: lm.fontSize, fontWeight: lm.fontWeight ?? "normal" });
-		return Math.max(m.height, Math.floor(lm.fontSize * 1.3));
-	});
-	// Единый отступ между всеми строками
-	const totalHeight = lineHeights.reduce((a, b) => a + b, 0) + Math.max(0, linesMeta.length - 1) * lineGap;
-	let startY = innerTextY + Math.max(0, Math.floor((innerTextH - totalHeight) / 2));
-	// Рендер: центрируем по горизонтали каждую строку
-	for (let i = 0; i < linesMeta.length; i++) {
-		const lm = linesMeta[i];
-		const widthPx = measureCanvasText(lm.text, { ...opts, fontSize: lm.fontSize, fontWeight: lm.fontWeight ?? "normal" }).width;
-		const x = innerTextX + Math.max(0, Math.floor((innerTextW - widthPx) / 2));
-		drawCanvasTextToBuffer(
-			{ data: packed, width, height },
-			lm.text,
-			x,
-			startY,
-			{ ...opts, fontSize: lm.fontSize, fontWeight: lm.fontWeight ?? "normal" },
-		);
-		if (i < linesMeta.length - 1) {
-			startY += lineHeights[i] + lineGap;
+
+	// Рисуем QR как inline SVG (чёрные модули на белом фоне)
+	const leftWidth = Math.floor(width * leftRatio);
+	const leftHeight = height;
+	// Максимальный размер QR в левой панели с отступами
+	const availQrW = Math.max(0, leftWidth - pad * 2);
+	const availQrH = Math.max(0, leftHeight - pad * 2);
+	const moduleSize = Math.max(1, Math.min(Math.floor(availQrW / totalModules), Math.floor(availQrH / totalModules)));
+	const qrDrawSize = totalModules * moduleSize;
+	const qrOffsetX = pad + Math.floor((availQrW - qrDrawSize) / 2) + marginModules * moduleSize;
+	const qrOffsetY = pad + Math.floor((availQrH - qrDrawSize) / 2) + marginModules * moduleSize;
+
+	// Строим элементы <rect> для чёрных модулей
+	const rects: React.ReactNode[] = [];
+	for (let y = 0; y < matrix.size; y++) {
+		for (let x = 0; x < matrix.size; x++) {
+			if (matrix.isDark(y * matrix.size + x)) {
+				rects.push(
+					createElement("rect", {
+						key: `${x}-${y}`,
+						x: qrOffsetX + x * moduleSize,
+						y: qrOffsetY + y * moduleSize,
+						width: moduleSize,
+						height: moduleSize,
+						fill: "#000",
+					} as unknown as React.SVGProps<SVGRectElement>),
+				);
+			}
 		}
 	}
 
-	// Конвертация в BMP 1bpp через утилиту
-	const bmpBytes = toMonochromeBmp({ width, height, data: packed }, { topDown, invert: false });
-	const bodyAb = new Uint8Array(bmpBytes).buffer; // гарантированно ArrayBuffer
-	return new NextResponse(bodyAb, {
-		headers: {
-			"Content-Type": "image/bmp",
-			"Content-Length": String(bmpBytes.length),
-			"Cache-Control": "no-cache",
+	// OG React-элемент полной сцены 800x480 (без JSX)
+	const leftPanel = createElement(
+		"div",
+		{
+			style: {
+				width: `${leftWidth}px`,
+				height: "100%",
+				boxSizing: "border-box",
+				padding: `${pad}px`,
+				position: "relative",
+			} as React.CSSProperties,
 		},
-	});
+		createElement(
+			"svg",
+			{
+				width: leftWidth,
+				height: height,
+				viewBox: `0 0 ${leftWidth} ${height}`,
+				xmlns: "http://www.w3.org/2000/svg",
+			} as unknown as React.SVGProps<SVGSVGElement>,
+			createElement("rect", {
+				x: 0,
+				y: 0,
+				width: leftWidth,
+				height: height,
+				fill: "#fff",
+			} as unknown as React.SVGProps<SVGRectElement>),
+			...rects,
+		),
+	);
+
+	const rightPanelChildren: React.ReactNode[] = [];
+	rightPanelChildren.push(
+		createElement(
+			"div",
+			{ style: { fontSize: `${baseFont}px`, fontWeight: 400 } as React.CSSProperties },
+			...instructionLines.map((l, i) => createElement("div", { key: i }, l)),
+		),
+	);
+	rightPanelChildren.push(
+		createElement("div", { style: { fontSize: `${baseFont}px`, fontWeight: 700 } as React.CSSProperties }, siteLine),
+	);
+	rightPanelChildren.push(
+		createElement("div", { style: { fontSize: `${baseFont}px`, fontWeight: 400 } as React.CSSProperties }, action),
+	);
+	rightPanelChildren.push(
+		createElement("div", { style: { fontSize: `${pinFont}px`, fontWeight: 700 } as React.CSSProperties }, pinLine),
+	);
+
+	const rightPanel = createElement(
+		"div",
+		{
+			style: {
+				width: `${Math.floor(width * rightRatio)}px`,
+				height: "100%",
+				boxSizing: "border-box",
+				padding: `${pad}px`,
+				display: "flex",
+				flexDirection: "column",
+				justifyContent: "center",
+				gap: `${lineGap}px`,
+				textAlign: "center",
+			} as React.CSSProperties,
+		},
+		...rightPanelChildren,
+	);
+
+	const element = createElement(
+		"div",
+		{
+			style: {
+				width: `${width}px`,
+				height: `${height}px`,
+				display: "flex",
+				flexDirection: "row",
+				background: "#fff",
+				color: "#000",
+				fontFamily: roboto.family,
+			} as React.CSSProperties,
+		},
+		leftPanel,
+		rightPanel,
+	);
+
+	// Рендерим через OG→BMP с двойным масштабом; при ошибке шрифтов — фолбэк на canvas 1bpp
+	try {
+		const bmpBytes = await renderOgElementToBmp(element, {
+			width,
+			height,
+			scale: 2,
+			fonts: ogFonts,
+			gamma: 1.8,
+		});
+		return new NextResponse(new Uint8Array(bmpBytes).buffer, {
+			headers: {
+				"Content-Type": "image/bmp",
+				"Content-Length": String(bmpBytes.length),
+				"Cache-Control": "no-cache",
+			},
+		});
+	} catch {
+		// Фолбэк: прежний рендер напрямую в 1bpp packed
+		const bytesPerRow = Math.ceil(width / 8);
+		const packed = new Uint8Array(bytesPerRow * height);
+
+		// Левая панель: QR
+		const leftWidthPx = Math.floor(width * leftRatio);
+		const leftLayout = computeQrLayout(leftWidthPx - pad * 2, height - pad * 2, matrix.size, marginModules);
+		// смещаем в пределах левой панели
+		const shiftedLayout = {
+			scale: leftLayout.scale,
+			offsetX: pad + leftLayout.offsetX,
+			offsetY: pad + leftLayout.offsetY,
+		};
+		drawQrPacked({ data: packed, width, height }, matrix, shiftedLayout);
+
+		// Правая панель: тексты (центрирование по колонке)
+		const rightX0 = leftWidthPx;
+		const innerTextX = rightX0 + pad;
+		const innerTextW = Math.max(0, width - rightX0 - pad * 2);
+		const innerTextY = pad;
+		const innerTextH = Math.max(0, height - pad * 2);
+		const opts = { fontFamily: roboto.family, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
+		measureCanvasText("Ag", opts);
+
+		// Перенос строк и вычисление высот
+		const wrappedInstrArr = instructionLines.map((line) =>
+			wrapTextToLines(line, innerTextW, opts, { maxLines: 2, minFontSize: 10 }),
+		);
+		const instrFontSize = Math.min(...wrappedInstrArr.map((w) => w.fontSize));
+		const wrappedAction = wrapTextToLines(action, innerTextW, { ...opts, fontSize: instrFontSize }, { maxLines: 3, minFontSize: 10 });
+		const renderFontSize = Math.min(instrFontSize, wrappedAction.fontSize);
+
+		type LineMeta = { text: string; fontSize: number; fontWeight?: "normal" | "bold" };
+		const linesMeta: LineMeta[] = [];
+		for (const w of wrappedInstrArr) {
+			for (const l of w.lines) linesMeta.push({ text: l, fontSize: renderFontSize, fontWeight: "normal" });
+		}
+		linesMeta.push({ text: siteLine, fontSize: renderFontSize, fontWeight: "bold" });
+		for (const l of wrappedAction.lines) linesMeta.push({ text: l, fontSize: renderFontSize, fontWeight: "normal" });
+		linesMeta.push({ text: pinLine, fontSize: pinFont, fontWeight: "bold" });
+
+		const lineHeights = linesMeta.map((lm) => {
+			const m = measureCanvasText("Ag", { ...opts, fontSize: lm.fontSize, fontWeight: lm.fontWeight ?? "normal" });
+			return Math.max(m.height, Math.floor(lm.fontSize * 1.3));
+		});
+		const totalHeight = lineHeights.reduce((a, b) => a + b, 0) + Math.max(0, linesMeta.length - 1) * lineGap;
+		let startY = innerTextY + Math.max(0, Math.floor((innerTextH - totalHeight) / 2));
+		for (let i = 0; i < linesMeta.length; i++) {
+			const lm = linesMeta[i];
+			const widthPx = measureCanvasText(lm.text, { ...opts, fontSize: lm.fontSize, fontWeight: lm.fontWeight ?? "normal" }).width;
+			const x = innerTextX + Math.max(0, Math.floor((innerTextW - widthPx) / 2));
+			drawCanvasTextToBuffer(
+				{ data: packed, width, height },
+				lm.text,
+				x,
+				startY,
+				{ ...opts, fontSize: lm.fontSize, fontWeight: lm.fontWeight ?? "normal" },
+			);
+			if (i < linesMeta.length - 1) {
+				startY += lineHeights[i] + lineGap;
+			}
+		}
+
+		const bmpBytes = toMonochromeBmp({ width, height, data: packed }, { topDown: false, invert: false });
+		return new NextResponse(new Uint8Array(bmpBytes).buffer, {
+			headers: {
+				"Content-Type": "image/bmp",
+				"Content-Length": String(bmpBytes.length),
+				"Cache-Control": "no-cache",
+			},
+		});
+	}
 }
 
