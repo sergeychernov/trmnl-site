@@ -15,9 +15,30 @@ type CompatibleFontOption = {
 	style?: "normal" | "italic";
 };
 
+type MinimalFontOptions = {
+	name: string;
+	data: ArrayBuffer;
+	// Совместимый набор значений веса: только допустимые CSS numeric weights
+	weight?: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
+	style?: "normal" | "italic";
+}[];
+
 export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined): Promise<CompatibleFontOption[]> {
 	if (!fonts || fonts.length === 0) return [];
 	const out: CompatibleFontOption[] = [];
+	function normalizeWeight(w?: number | string): 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 {
+		let num: number | null = null;
+		if (typeof w === "number" && Number.isFinite(w)) num = w;
+		else if (typeof w === "string") {
+			const parsed = parseInt(w, 10);
+			if (Number.isFinite(parsed)) num = parsed;
+		}
+		if (num == null) return 400;
+		// округляем к ближайшим сотням и ограничиваем диапазон 100..900
+		const rounded = Math.round(num / 100) * 100;
+		const clamped = Math.min(900, Math.max(100, rounded));
+		return (clamped as unknown) as 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
+	}
 	function toArrayBufferStrict(src: Uint8Array | ArrayBuffer): ArrayBuffer {
 		if (src instanceof ArrayBuffer) return src;
 		const ab = new ArrayBuffer(src.byteLength);
@@ -30,7 +51,7 @@ export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined): Promise
 			out.push({
 				name: f.name,
 				data: toArrayBufferStrict(buf),
-				weight: f.weight ?? 400,
+				weight: normalizeWeight(f.weight),
 				style: (f.style ?? "normal"),
 			});
 		} else {
@@ -38,7 +59,7 @@ export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined): Promise
 			out.push({
 				name: f.name,
 				data: toArrayBufferStrict(arr),
-				weight: f.weight ?? 400,
+				weight: normalizeWeight(f.weight),
 				style: (f.style ?? "normal"),
 			});
 		}
@@ -64,8 +85,8 @@ export async function renderOgElementToBmp(
 	const png = await new ImageResponse(element, {
 		width: width * scale,
 		height: height * scale,
-		// Приведение для совместимости с типами next/og разных версий
-		fonts: ogFonts as unknown as any,
+		// Структурно совместимое приведение без использования any
+		fonts: ogFonts as unknown as MinimalFontOptions,
 		debug: false,
 	}).arrayBuffer();
 
