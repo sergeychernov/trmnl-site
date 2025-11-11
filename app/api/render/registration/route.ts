@@ -49,11 +49,8 @@ export async function GET(request: Request) {
 	if (!noto.regular && !noto.bold) noto = await ensureNotoSansMono();
 	let roboto = await resolveLocalFont("Roboto Mono", { regular: "RobotoMono-Regular.ttf", bold: "RobotoMono-Bold.ttf" });
 	if (!roboto.regular && !roboto.bold) roboto = await ensureRobotoMono();
+	// Для надёжности используем одно семейство в OG (Noto Sans)
 	const ogFonts = [];
-	if (roboto.regular) ogFonts.push({ name: roboto.family, dataPath: roboto.regular, weight: 400 as const, style: "normal" as const });
-	if (roboto.bold) ogFonts.push({ name: roboto.family, dataPath: roboto.bold, weight: 700 as const, style: "normal" as const });
-	if (noto.regular) ogFonts.push({ name: noto.family, dataPath: noto.regular, weight: 400 as const, style: "normal" as const });
-	if (noto.bold) ogFonts.push({ name: noto.family, dataPath: noto.bold, weight: 700 as const, style: "normal" as const });
 	if (notoSans.regular) ogFonts.push({ name: notoSans.family, dataPath: notoSans.regular, weight: 400 as const, style: "normal" as const });
 	if (notoSans.bold) ogFonts.push({ name: notoSans.family, dataPath: notoSans.bold, weight: 700 as const, style: "normal" as const });
 
@@ -173,7 +170,7 @@ export async function GET(request: Request) {
 				flexDirection: "row",
 				background: "#fff",
 				color: "#000",
-				fontFamily: `${roboto.family}, ${noto.family}, ${notoSans.family}`,
+				fontFamily: notoSans.family,
 			} as React.CSSProperties,
 		},
 		leftPanel,
@@ -227,7 +224,7 @@ export async function GET(request: Request) {
 		const innerTextY = pad;
 		const innerTextH = Math.max(0, height - pad * 2);
 		// Для node-canvas используем ОДНУ зарегистрированную семью, без списка через запятую
-		const fallbackFamily = notoSans.regular ? notoSans.family : (noto.regular ? noto.family : (roboto.regular ? roboto.family : "sans-serif"));
+		const fallbackFamily = notoSans.regular ? notoSans.family : "sans-serif";
 		const opts = { fontFamily: fallbackFamily, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
 		measureCanvasText("Ag", opts);
 
