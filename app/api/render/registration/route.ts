@@ -55,6 +55,28 @@ export async function GET(request: Request) {
 	if (!noto.regular && !noto.bold) noto = await ensureNotoSansMono();
 	let roboto = await resolveLocalFont("Roboto Mono", { regular: "RobotoMono-Regular.ttf", bold: "RobotoMono-Bold.ttf" });
 	if (!roboto.regular && !roboto.bold) roboto = await ensureRobotoMono();
+	// Если локальные файлы не найдены, попробуем подтянуть их по HTTP из /fonts и сохранить в /tmp
+	async function ensureFromPublicUrl(file: string): Promise<string> {
+		try {
+			const urlAbs = `${base}/fonts/${file}`;
+			const res = await fetch(urlAbs);
+			if (!res.ok) return "";
+			const ab = await res.arrayBuffer();
+			const dir = "/tmp/fonts";
+			await (await import("node:fs/promises")).mkdir(dir, { recursive: true });
+			const p = `${dir}/${file}`;
+			await (await import("node:fs/promises")).writeFile(p, Buffer.from(ab));
+			return p;
+		} catch {
+			return "";
+		}
+	}
+	if (!notoSans.regular) notoSans.regular = await ensureFromPublicUrl("NotoSans-Regular.ttf");
+	if (!notoSans.bold) notoSans.bold = await ensureFromPublicUrl("NotoSans-Bold.ttf");
+	if (!noto.regular) noto.regular = await ensureFromPublicUrl("NotoSansMono-Regular.ttf");
+	if (!noto.bold) noto.bold = await ensureFromPublicUrl("NotoSansMono-Bold.ttf");
+	if (!roboto.regular) roboto.regular = await ensureFromPublicUrl("RobotoMono-Regular.ttf");
+	if (!roboto.bold) roboto.bold = await ensureFromPublicUrl("RobotoMono-Bold.ttf");
 	// Для надёжности используем одно семейство в OG (Noto Sans)
 	const ogFonts = [];
 	if (notoSans.regular) ogFonts.push({ name: notoSans.family, dataPath: notoSans.regular, weight: 400 as const, style: "normal" as const });
