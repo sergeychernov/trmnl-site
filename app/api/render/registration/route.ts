@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createElement } from "react";
 import { getBaseUrl, parseRenderSearchParams } from "@lib/persers";
 import { createQrMatrix, computeQrLayout, drawQrPacked } from "@lib/qr";
-import { ensureRobotoMono, ensureNotoSansMono } from "@lib/fonts";
+import { ensureRobotoMono, ensureNotoSansMono, ensureNotoSans, resolveLocalFont } from "@lib/fonts";
 import { renderOgElementToBmp } from "@lib/ogToBmp";
 import { toMonochromeBmp } from "@lib/bmp";
 import { drawCanvasTextToBuffer, measureCanvasText, wrapTextToLines } from "@lib/canvasText";
@@ -38,14 +38,24 @@ export async function GET(request: Request) {
 	const rightRatio = 0.6;
 	const pad = 16;
 
-	// Подключаем шрифты для OG (Roboto Mono + Noto Sans Mono для расширенного покрытия)
-	const roboto = await ensureRobotoMono();
-	const noto = await ensureNotoSansMono();
+	// Подключаем шрифты для OG (локальные в public/fonts имеют приоритет)
+	// Поддерживаемые имена файлов:
+	// - NotoSans-Regular.ttf / NotoSans-Bold.ttf
+	// - NotoSansMono-Regular.ttf / NotoSansMono-Bold.ttf
+	// - RobotoMono-Regular.ttf / RobotoMono-Bold.ttf
+	let notoSans = await resolveLocalFont("Noto Sans", { regular: "NotoSans-Regular.ttf", bold: "NotoSans-Bold.ttf" });
+	if (!notoSans.regular && !notoSans.bold) notoSans = await ensureNotoSans();
+	let noto = await resolveLocalFont("Noto Sans Mono", { regular: "NotoSansMono-Regular.ttf", bold: "NotoSansMono-Bold.ttf" });
+	if (!noto.regular && !noto.bold) noto = await ensureNotoSansMono();
+	let roboto = await resolveLocalFont("Roboto Mono", { regular: "RobotoMono-Regular.ttf", bold: "RobotoMono-Bold.ttf" });
+	if (!roboto.regular && !roboto.bold) roboto = await ensureRobotoMono();
 	const ogFonts = [];
 	if (roboto.regular) ogFonts.push({ name: roboto.family, dataPath: roboto.regular, weight: 400 as const, style: "normal" as const });
 	if (roboto.bold) ogFonts.push({ name: roboto.family, dataPath: roboto.bold, weight: 700 as const, style: "normal" as const });
 	if (noto.regular) ogFonts.push({ name: noto.family, dataPath: noto.regular, weight: 400 as const, style: "normal" as const });
 	if (noto.bold) ogFonts.push({ name: noto.family, dataPath: noto.bold, weight: 700 as const, style: "normal" as const });
+	if (notoSans.regular) ogFonts.push({ name: notoSans.family, dataPath: notoSans.regular, weight: 400 as const, style: "normal" as const });
+	if (notoSans.bold) ogFonts.push({ name: notoSans.family, dataPath: notoSans.bold, weight: 700 as const, style: "normal" as const });
 
 	// Тексты
 	const instructionLines = [`Чтобы настроить устройство, перейдите по qrcode`, `или`, `перейдите по ссылке`];
@@ -163,7 +173,7 @@ export async function GET(request: Request) {
 				flexDirection: "row",
 				background: "#fff",
 				color: "#000",
-				fontFamily: `${roboto.family}, ${noto.family}, sans-serif`,
+				fontFamily: `${roboto.family}, ${noto.family}, ${notoSans.family}`,
 			} as React.CSSProperties,
 		},
 		leftPanel,
@@ -191,11 +201,13 @@ export async function GET(request: Request) {
 		const bytesPerRow = Math.ceil(width / 8);
 		const packed = new Uint8Array(bytesPerRow * height);
 
-		// Зарегистрировать шрифты для node-canvas, если доступны
-		if (roboto.regular) { try { registerFont(roboto.regular, { family: roboto.family, weight: "normal" }); } catch { } }
-		if (roboto.bold) { try { registerFont(roboto.bold, { family: roboto.family, weight: "bold" }); } catch { } }
+		// Зарегистрировать шрифты для node-canvas, если доступны (локальные пути работают без Fontconfig)
+		if (notoSans.regular) { try { registerFont(notoSans.regular, { family: notoSans.family, weight: "normal" }); } catch { } }
+		if (notoSans.bold) { try { registerFont(notoSans.bold, { family: notoSans.family, weight: "bold" }); } catch { } }
 		if (noto.regular) { try { registerFont(noto.regular, { family: noto.family, weight: "normal" }); } catch { } }
 		if (noto.bold) { try { registerFont(noto.bold, { family: noto.family, weight: "bold" }); } catch { } }
+		if (roboto.regular) { try { registerFont(roboto.regular, { family: roboto.family, weight: "normal" }); } catch { } }
+		if (roboto.bold) { try { registerFont(roboto.bold, { family: roboto.family, weight: "bold" }); } catch { } }
 
 		// Левая панель: QR
 		const leftWidthPx = Math.floor(width * leftRatio);
@@ -215,7 +227,7 @@ export async function GET(request: Request) {
 		const innerTextY = pad;
 		const innerTextH = Math.max(0, height - pad * 2);
 		// Для node-canvas используем ОДНУ зарегистрированную семью, без списка через запятую
-		const fallbackFamily = noto.regular ? noto.family : (roboto.regular ? roboto.family : "monospace");
+		const fallbackFamily = notoSans.regular ? notoSans.family : (noto.regular ? noto.family : (roboto.regular ? roboto.family : "sans-serif"));
 		const opts = { fontFamily: fallbackFamily, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
 		measureCanvasText("Ag", opts);
 
