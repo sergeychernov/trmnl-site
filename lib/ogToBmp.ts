@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import type { FontOptions } from "next/og";
 import type React from "react";
 import fs from "node:fs/promises";
 import { pngBufferToPacked1bppAtkinson } from "@lib/dither";
@@ -8,9 +9,9 @@ export type OgFontSpec =
 	| { name: string; dataPath: string; weight?: number; style?: "normal" | "italic" }
 	| { name: string; data: ArrayBuffer | Uint8Array; weight?: number; style?: "normal" | "italic" };
 
-export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined) {
+export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined): Promise<FontOptions[]> {
 	if (!fonts || fonts.length === 0) return [];
-	const out: Array<{ name: string; data: ArrayBuffer; weight: number; style: "normal" | "italic" }> = [];
+	const out: FontOptions[] = [];
 	function toArrayBufferStrict(src: Uint8Array | ArrayBuffer): ArrayBuffer {
 		if (src instanceof ArrayBuffer) return src;
 		const ab = new ArrayBuffer(src.byteLength);
@@ -23,16 +24,16 @@ export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined) {
 			out.push({
 				name: f.name,
 				data: toArrayBufferStrict(buf),
-				weight: (f.weight ?? 400) as number,
-				style: (f.style ?? "normal") as "normal" | "italic",
+				weight: (f.weight ?? 400) as unknown as FontOptions["weight"],
+				style: (f.style ?? "normal") as FontOptions["style"],
 			});
 		} else {
 			const arr = f.data instanceof Uint8Array ? f.data : new Uint8Array(f.data);
 			out.push({
 				name: f.name,
 				data: toArrayBufferStrict(arr),
-				weight: (f.weight ?? 400) as number,
-				style: (f.style ?? "normal") as "normal" | "italic",
+				weight: (f.weight ?? 400) as unknown as FontOptions["weight"],
+				style: (f.style ?? "normal") as FontOptions["style"],
 			});
 		}
 	}
