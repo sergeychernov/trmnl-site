@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createElement } from "react";
 import { getBaseUrl, parseRenderSearchParams } from "@lib/persers";
 import { createQrMatrix, computeQrLayout, drawQrPacked } from "@lib/qr";
-import { ensureRobotoMono, ensureNotoSansMono, ensureNotoSans, resolveLocalFont } from "@lib/fonts";
+import { resolveLocalFont } from "@lib/fonts";
 import { renderOgElementToBmp } from "@lib/ogToBmp";
 import { toMonochromeBmp } from "@lib/bmp";
 import { drawCanvasTextToBuffer, measureCanvasText, wrapTextToLines } from "@lib/canvasText";
@@ -44,70 +44,11 @@ export async function GET(request: Request) {
 	const rightRatio = 0.6;
 	const pad = 16;
 
-	// Подключаем шрифты для OG (локальные в public/fonts имеют приоритет)
-	// Поддерживаемые имена файлов:
-	// - NotoSans-Regular.ttf / NotoSans-Bold.ttf
-	// - NotoSansMono-Regular.ttf / NotoSansMono-Bold.ttf
-	// - RobotoMono-Regular.ttf / RobotoMono-Bold.ttf
-	let notoSans = await resolveLocalFont("Noto Sans", { regular: "NotoSans-Regular.ttf", bold: "NotoSans-Bold.ttf" });
-	if (!notoSans.regular && !notoSans.bold) notoSans = await ensureNotoSans();
-	let noto = await resolveLocalFont("Noto Sans Mono", { regular: "NotoSansMono-Regular.ttf", bold: "NotoSansMono-Bold.ttf" });
-	if (!noto.regular && !noto.bold) noto = await ensureNotoSansMono();
-	let roboto = await resolveLocalFont("Roboto Mono", { regular: "RobotoMono-Regular.ttf", bold: "RobotoMono-Bold.ttf" });
-	if (!roboto.regular && !roboto.bold) roboto = await ensureRobotoMono();
-	// Если локальные файлы не найдены, попробуем подтянуть их по HTTP из /fonts и сохранить в /tmp
-	async function ensureFromPublicUrl(file: string): Promise<string> {
-		try {
-			// Убираем порт из base, если он случайно попал
-			const cleanBase = base.replace(/:443$/, "").replace(/:80$/, "");
-			const urlAbs = `${cleanBase}/fonts/${file}`;
-			console.log(`[fonts] Fetching ${urlAbs}`);
-			const res = await fetch(urlAbs);
-			if (!res.ok) {
-				console.log(`[fonts] Fetch failed: ${res.status} ${res.statusText}`);
-				return "";
-			}
-			const ab = await res.arrayBuffer();
-			const dir = "/tmp/fonts";
-			await (await import("node:fs/promises")).mkdir(dir, { recursive: true });
-			const p = `${dir}/${file}`;
-			await (await import("node:fs/promises")).writeFile(p, Buffer.from(ab));
-			console.log(`[fonts] Downloaded ${file} → ${p}`);
-			return p;
-		} catch (err) {
-			console.log(`[fonts] ensureFromPublicUrl(${file}) error:`, err);
-			return "";
-		}
-	}
-	if (!notoSans.regular) notoSans.regular = await ensureFromPublicUrl("NotoSans-Regular.ttf");
-	if (!notoSans.bold) notoSans.bold = await ensureFromPublicUrl("NotoSans-Bold.ttf");
-	if (!noto.regular) noto.regular = await ensureFromPublicUrl("NotoSansMono-Regular.ttf");
-	if (!noto.bold) noto.bold = await ensureFromPublicUrl("NotoSansMono-Bold.ttf");
-	if (!roboto.regular) roboto.regular = await ensureFromPublicUrl("RobotoMono-Regular.ttf");
-	if (!roboto.bold) roboto.bold = await ensureFromPublicUrl("RobotoMono-Bold.ttf");
-	// Если файлы появились, убедимся что имя семейства корректное (а не generic)
-	if ((notoSans.regular || notoSans.bold) && notoSans.family !== "Noto Sans") {
-		notoSans.family = "Noto Sans";
-	}
-	if ((noto.regular || noto.bold) && noto.family !== "Noto Sans Mono") {
-		noto.family = "Noto Sans Mono";
-	}
-	if ((roboto.regular || roboto.bold) && roboto.family !== "Roboto Mono") {
-		roboto.family = "Roboto Mono";
-	}
-	// Для надёжности используем одно семейство в OG (Noto Sans)
+	// Подключаем только Noto Sans из public/fonts
+	const notoSans = await resolveLocalFont("Noto Sans", { regular: "NotoSans-Regular.ttf", bold: "NotoSans-Bold.ttf" });
 	const ogFonts = [];
 	if (notoSans.regular) ogFonts.push({ name: notoSans.family, dataPath: notoSans.regular, weight: 400 as const, style: "normal" as const });
 	if (notoSans.bold) ogFonts.push({ name: notoSans.family, dataPath: notoSans.bold, weight: 700 as const, style: "normal" as const });
-	// Диагностика шрифтов
-	try {
-		const dump = (label: string, f: { family: string; regular: string; bold: string }) =>
-			console.log(`[fonts] ${label}: family="${f.family}" regular="${f.regular}" bold="${f.bold}"`);
-		dump("NotoSans", notoSans);
-		dump("NotoSansMono", noto);
-		dump("RobotoMono", roboto);
-		console.log(`[fonts] OG fonts count=${ogFonts.length}`);
-	} catch { /* noop */ }
 
 	// Тексты
 	const instructionLines = [`Чтобы настроить устройство, перейдите по qrcode`, `или`, `перейдите по ссылке`];
@@ -258,17 +199,13 @@ export async function GET(request: Request) {
 		const bytesPerRow = Math.ceil(width / 8);
 		const packed = new Uint8Array(bytesPerRow * height);
 
-		// Зарегистрировать шрифты для node-canvas, если доступны (локальные пути работают без Fontconfig)
+		// Зарегистрировать Noto Sans для node-canvas
 		if (notoSans.regular) {
 			try { registerFont(notoSans.regular, { family: notoSans.family, weight: "normal" }); } catch (e) { try { console.error("[fonts] registerFont regular failed", e); } catch { } }
 		}
 		if (notoSans.bold) {
 			try { registerFont(notoSans.bold, { family: notoSans.family, weight: "bold" }); } catch (e) { try { console.error("[fonts] registerFont bold failed", e); } catch { } }
 		}
-		if (noto.regular) { try { registerFont(noto.regular, { family: noto.family, weight: "normal" }); } catch { } }
-		if (noto.bold) { try { registerFont(noto.bold, { family: noto.family, weight: "bold" }); } catch { } }
-		if (roboto.regular) { try { registerFont(roboto.regular, { family: roboto.family, weight: "normal" }); } catch { } }
-		if (roboto.bold) { try { registerFont(roboto.bold, { family: roboto.family, weight: "bold" }); } catch { } }
 
 		// Левая панель: QR
 		const leftWidthPx = Math.floor(width * leftRatio);
@@ -287,11 +224,10 @@ export async function GET(request: Request) {
 		const innerTextW = Math.max(0, width - rightX0 - pad * 2);
 		const innerTextY = pad;
 		const innerTextH = Math.max(0, height - pad * 2);
-		// Для node-canvas используем ОДНУ зарегистрированную семью, без списка через запятую
-		const fallbackFamily = notoSans.regular ? notoSans.family : "sans-serif";
-		const opts = { fontFamily: fallbackFamily, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
+		// Используем Noto Sans для canvas fallback
+		const opts = { fontFamily: notoSans.family, fontSize: baseFont, thresholdAlpha: 64, color: "#000" as const };
 		try {
-			console.log(`[registration] Render canvas fallback: family="${fallbackFamily}"`);
+			console.log(`[registration] Render canvas fallback: family="${notoSans.family}"`);
 		} catch { /* noop */ }
 		measureCanvasText("Ag", opts);
 
