@@ -35,6 +35,6 @@
     "simple-git-hooks": "^2.10.0"
   },
   "simple-git-hooks": {
-    "pre-commit": "yarn type-check"
+    "pre-commit": "yarn type-check && yarn lint"
   }
 }
