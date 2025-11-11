@@ -40,7 +40,7 @@ export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined) {
 }
 
 export async function renderOgElementToBmp(
-	element: React.ReactNode,
+	element: React.ReactElement,
 	options: {
 		width: number;
 		height: number;
