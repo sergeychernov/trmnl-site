@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { randomBytes } from "crypto";
+import type { DeviceDoc } from "@/db/types";
 
 export const runtime = "nodejs";
 
@@ -45,23 +46,6 @@ export async function GET(request: Request) {
 	if (collections.length === 0) {
 		await db.createCollection("devices");
 	}
-	type DeviceDoc = {
-		friendly_id: string;
-		name: string;
-		mac_address: string;
-		api_key: string;
-		screen: string | null;
-		refresh_schedule: unknown | null;
-		timezone: string;
-		last_update_time: Date | null;
-		next_expected_update: Date | null;
-		last_refresh_duration: number | null;
-		battery_voltage: number | null;
-		firmware_version: string | null;
-		rssi: number | null;
-		created_at: Date;
-		updated_at: Date;
-	};
 	const devicesCol = db.collection<DeviceDoc>("devices");
 
 	const device: DeviceDoc | null = await devicesCol.findOne({ mac_address: macHex });
