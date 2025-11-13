@@ -3,7 +3,7 @@ import { getPlugin } from "@/plugins";
 import type { Settings, UserSettings } from "@/lib/settings";
 import { getDb } from "@/lib/mongodb";
 import { hashMacAddress } from "@lib/hash";
-import { getBaseUrl } from "@lib/persers";
+import { getBaseUrl } from "@/lib/parsers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 	if (collections.length === 0) {
 		await db.createCollection("settings");
 	}
-	const deviceId = macHex ? await hashMacAddress(macHex) : null;
+	const deviceId = macHex ? hashMacAddress(macHex) : null;
 	const settingsCol = db.collection<Settings & { _id: string }>("settings");
 	const settingsDoc = deviceId ? await settingsCol.findOne({ _id: deviceId }) : null;
 

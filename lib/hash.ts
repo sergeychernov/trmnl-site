@@ -1,37 +1,24 @@
-// Универсальные функции хеширования (браузер/Node)
+import { createHash } from "crypto";
+// Универсальные функции хеширования (Node.js, синхронные)
 // SHA-256 в hex; можно укоротить результат через необязательный параметр length
-export async function hashString(input: string, length?: number): Promise<string> {
-	const webCrypto = (globalThis as unknown as { crypto?: Crypto }).crypto;
-	let hex: string;
-	if (webCrypto?.subtle) {
-		const encoder = new TextEncoder();
-		const data = encoder.encode(input);
-		const digest = await webCrypto.subtle.digest("SHA-256", data);
-		hex = bufferToHex(digest);
-	} else {
-		// Fallback для Node.js окружения без WebCrypto
-		const { createHash } = await import("crypto");
-		hex = createHash("sha256").update(input, "utf8").digest("hex");
-	}
+export function hashString(input: string, length?: number): string {
+	const hex = createHash("sha256").update(input, "utf8").digest("hex");
 	if (typeof length === "number" && length > 0) {
 		return hex.slice(0, Math.min(length, hex.length));
 	}
 	return hex;
 }
 
-export async function hashMacAddress(macAddress: string): Promise<string> {
+export function hashMacAddress(macAddress: string): string {
 	// Нормализуем MAC: верхний регистр и только шестнадцатеричные символы
 	const normalized = macAddress.trim().toUpperCase().replace(/[^A-F0-9]/g, "");
 	return hashString(normalized, 12);
 }
 
-function bufferToHex(buffer: ArrayBuffer): string {
-	const bytes = new Uint8Array(buffer);
-	let hex = "";
-	for (let i = 0; i < bytes.length; i++) {
-		hex += bytes[i].toString(16).padStart(2, "0");
-	}
-	return hex;
+export function computeSixDigitPinFromMac(macAddress: string): string {
+	const normalized = macAddress.trim().toUpperCase().replace(/[^A-F0-9]/g, "");
+	const hex = hashString(normalized);
+	const int32 = parseInt(hex.slice(0, 8), 16);
+	const pin = int32 % 1_000_000;
+	return pin.toString().padStart(6, "0");
 }
-
-

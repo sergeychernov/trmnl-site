@@ -1,7 +1,7 @@
 export type DeviceDoc = {
 	friendly_id: string;
 	name: string;
-	mac_address: string;
+	mac: string;
 	api_key: string;
 	screen: string | null;
 	refresh_schedule: unknown | null;
@@ -14,6 +14,8 @@ export type DeviceDoc = {
 	rssi: number | null;
 	created_at: Date;
 	updated_at: Date;
+	pin?: string;
+	registered_at?: Date;
 };
 
 

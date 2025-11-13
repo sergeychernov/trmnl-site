@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getPlugin } from "@/plugins";
 import type { UserSettings } from "@/lib/settings";
 import { hashMacAddress } from "@lib/hash";
-import { getBaseUrl } from "@lib/persers";
+import { getBaseUrl } from "@/lib/parsers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 	const idHeader = request.headers.get("ID")?.toUpperCase() ?? "";
 	const macRaw = idParam || idHeader;
 	const macHex = macRaw.replace(/[^A-F0-9]/g, "").slice(0, 12);
-	const deviceId = macHex ? await hashMacAddress(macHex) : null;
+	const deviceId = macHex ? hashMacAddress(macHex) : null;
 
 	const plugin = getPlugin(pluginId);
 	if (!plugin) {

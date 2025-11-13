@@ -48,7 +48,7 @@ const hello: Plugin<HelloSettings> = {
 	async render(user: UserSettings, device: HelloSettings, _ctx: { deviceId: string | null; baseUrl: string }) {
 		// Ориентация влияет на "посев", но размер остается фиксированным для плагина
 		const seed = `${user.name}:${device.message}:${user.age}:${device.orientation}`;
-		const hashHex = await hashString(seed);
+		const hashHex = hashString(seed);
 		const { width, height } = hello.outputSize;
 		const data = patternFromHash(hashHex, width, height);
 		return {

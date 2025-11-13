@@ -81,6 +81,87 @@ export function getBaseUrl(request: Request): string {
 	return parseRenderHeaders(request).baseUrl;
 }
 
+// Разбор заголовков от устройства (display endpoint)
+export type DisplayHeaders = {
+	// Базовые сетевые параметры (как в RenderHeaders)
+	protocol: string;
+	host: string;
+	port?: string;
+	baseUrl: string;
+	forwardedFor?: string;
+	userAgent?: string;
+	// Поля устройства
+	macRaw: string;
+	mac: string; // 12 HEX, верхний регистр, без разделителей
+	accessToken: string;
+	refreshRate: number; // секунды
+	batteryVoltage: number; // Вольт
+	firmwareVersion: string;
+	model: string;
+	rssi: number; // dBm
+	width: number;
+	height: number;
+};
+
+export function parseDisplayHeaders(request: Request): DisplayHeaders | null {
+	const base = parseRenderHeaders(request);
+	const headers = request.headers;
+
+	// ID (MAC) приходит как строка с возможными разделителями
+	const idHeader = headers.get("ID") ?? headers.get("id");
+	if (!idHeader) return null;
+	const macRaw = idHeader.toString();
+	const macClean = macRaw.toUpperCase().replace(/[^A-F0-9]/g, "").slice(0, 12);
+	if (macClean.length !== 12) return null;
+	const mac = macClean;
+
+	const accessToken = headers.get("access-token");
+	if (!accessToken) return null;
+
+	const refreshRateNum = Number(headers.get("refresh-rate"));
+	if (!Number.isFinite(refreshRateNum) || refreshRateNum <= 0) return null;
+	const refreshRate = Math.trunc(refreshRateNum);
+
+	const batteryVoltageNum = Number(headers.get("battery-voltage"));
+	if (!Number.isFinite(batteryVoltageNum)) return null;
+	const batteryVoltage = batteryVoltageNum;
+
+	const firmwareVersion = headers.get("fw-version");
+	if (!firmwareVersion) return null;
+	const model = headers.get("model");
+	if (!model) return null;
+
+	const rssiNum = Number(headers.get("rssi"));
+	if (!Number.isFinite(rssiNum)) return null;
+	const rssi = Math.trunc(rssiNum);
+
+	const widthNum = Number(headers.get("width"));
+	const heightNum = Number(headers.get("height"));
+	if (!Number.isFinite(widthNum) || !Number.isFinite(heightNum)) return null;
+	const width = Math.trunc(widthNum);
+	const height = Math.trunc(heightNum);
+	if (width <= 0 || height <= 0) return null;
+
+	return {
+		protocol: base.protocol,
+		host: base.host,
+		port: base.port,
+		baseUrl: base.baseUrl,
+		forwardedFor: base.forwardedFor ?? undefined,
+		userAgent: base.userAgent ?? undefined,
+		macRaw,
+		mac,
+		accessToken,
+		refreshRate,
+		batteryVoltage,
+		firmwareVersion,
+		model,
+		rssi,
+		width,
+		height,
+	};
+}
+
 // Разбор стандартных query-параметров рендера
 export type RenderSearchParams = {
 	rotate: 0 | 90 | 180 | 270;

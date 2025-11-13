@@ -9,6 +9,9 @@ export const runtime = "nodejs";
 // BYOS-спецификация: всегда HTTP 200, статус в JSON.
 export async function GET(request: Request) {
 	const idHeader = request.headers.get("ID")?.toUpperCase() ?? null; // MAC адрес
+	console.log(`[setup]`, request.headers);
+	console.log(`[setup]`, request.body);
+	console.log(`[setup]`, request.url);
 
 	if (!idHeader) {
 		return NextResponse.json(
@@ -61,7 +64,7 @@ export async function GET(request: Request) {
 		const newDoc: DeviceDoc = {
 			friendly_id: friendlyId,
 			name,
-			mac_address: macHex,
+			mac: macHex,
 			api_key: apiKey,
 			screen: null,
 			refresh_schedule: null,
@@ -87,7 +90,7 @@ export async function GET(request: Request) {
 			api_key: apiKey,
 			updated_at: new Date(),
 		};
-		await devicesCol.updateOne({ mac_address: macHex }, { $set: update });
+		await devicesCol.updateOne({ mac: macHex }, { $set: update });
 		result = { ...device, ...update } as DeviceDoc;
 	}
 

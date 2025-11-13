@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createElement } from "react";
-import { getBaseUrl, parseRenderSearchParams } from "@lib/persers";
+import { getBaseUrl, parseRenderSearchParams } from "@/lib/parsers";
 import { resolveLocalFont } from "@lib/fonts";
 import { renderOgElementToBmp } from "@lib/ogToBmp";
 import { RegistrationScreen } from "./RegistrationScreen";
