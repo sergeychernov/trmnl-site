@@ -4,6 +4,7 @@ export type DeviceDoc = {
 	friendly_id: string;
 	name: string;
 	mac: string;
+	hash: string;
 	api_key: string;
 	screen: string | null;
 	refresh_schedule: unknown | null;

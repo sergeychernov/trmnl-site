@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 	// Базовый URL и ссылка для QR: {baseUrl}/settings/{deviceId?}
 	const origin = getBaseUrl(request);
 	const base = (origin || "").replace(/\/+$/, "");
-	const addDeviceUrl = `${base}/profile/device/connect?pin=${pin}`;
+	const addDeviceUrl = `${base}/profile/devices/connect?pin=${pin}`;
 	// Диагностика URL'ов
 	try {
 		console.log(`[registration] request.url=${request.url}`);

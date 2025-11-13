@@ -26,7 +26,7 @@ export default async function AddDevicePage({
         }
       }
     }
-    const originalPath = `/profile/device/connect${params.toString() ? `?${params.toString()}` : ""}`;
+    const originalPath = `/profile/devices/connect${params.toString() ? `?${params.toString()}` : ""}`;
     const url = `/auth?callbackUrl=${encodeURIComponent(originalPath)}`;
     redirect(url);
   }

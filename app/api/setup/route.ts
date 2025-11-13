@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { randomBytes } from "crypto";
 import type { DeviceDoc } from "@/db/types";
+import { hashMacAddress } from "@/lib/hash";
 
 export const runtime = "nodejs";
 
@@ -65,6 +66,7 @@ export async function GET(request: Request) {
 			friendly_id: friendlyId,
 			name,
 			mac: macHex,
+			hash: hashMacAddress(macHex),
 			api_key: apiKey,
 			screen: null,
 			refresh_schedule: null,
