@@ -103,6 +103,7 @@ export const {
 	signIn,
 	signOut,
 } = NextAuth({
+	trustHost: true,
 	// Жёстко синхронизируем имя БД между адаптером и getDb()
 	adapter: MongoDBAdapter(mongoClientPromise, {
 		databaseName: resolvedMongoDbName,

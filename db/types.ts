@@ -1,3 +1,5 @@
+import { ObjectId } from "mongodb";
+
 export type DeviceDoc = {
 	friendly_id: string;
 	name: string;
@@ -16,6 +18,17 @@ export type DeviceDoc = {
 	updated_at: Date;
 	pin?: string;
 	registered_at?: Date;
+};
+
+export type DeviceMemberDoc = {
+	userId: ObjectId;
+	deviceId: ObjectId;
+	role: "owner" | "editor" | "viewer";
+	status: "active" | "revoked" | "pending";
+	alias?: string;
+	addedBy?: ObjectId;
+	createdAt: Date;
+	updatedAt?: Date;
 };
 
 

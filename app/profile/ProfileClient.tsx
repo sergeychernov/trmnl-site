@@ -102,7 +102,11 @@ export default function ProfileClient() {
 					</button>
 				)}
 				<button
-					onClick={() => signOut({ callbackUrl: "/auth" })}
+					onClick={async () => {
+						const res = await signOut({ redirect: false });
+						// Делаем переход сами, чтобы сохранить текущий хост
+						router.push("/auth");
+					}}
 					className="w-full rounded-md bg-gray-800 text-white py-2.5 hover:bg-black transition"
 				>
 					Выйти

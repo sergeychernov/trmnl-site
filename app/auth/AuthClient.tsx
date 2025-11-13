@@ -12,6 +12,17 @@ export default function AuthClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
+  const redirectRaw = useMemo(() => {
+    // Приоритет нашему параметру redirect; для совместимости поддержим и callbackUrl
+    return searchParams?.get("callbackUrl") ?? null;
+  }, [searchParams]);
+  const safeRedirect = useMemo(() => {
+    // Разрешаем только внутренние пути вида "/something", запрещаем схемы/протоколы/двойные слэши
+    if (redirectRaw && redirectRaw.startsWith("/") && !redirectRaw.startsWith("//")) {
+      return redirectRaw;
+    }
+    return "/profile";
+  }, [redirectRaw]);
   const authError = useMemo(() => {
     const err = searchParams?.get("error");
     if (!err) return null;
@@ -29,12 +40,16 @@ export default function AuthClient() {
     setError(null);
     setIsLoading(true);
     try {
-      await signIn("credentials", {
+      const res = await signIn("credentials", {
         email,
         password,
-        redirect: true,
-        callbackUrl: "/profile",
+        redirect: false,
+        callbackUrl: safeRedirect,
       });
+      // Если NextAuth вернул URL, переключимся сами, чтобы не терять текущий хост
+      if (res && typeof res === "object" && "url" in res && typeof res.url === "string") {
+        router.replace(safeRedirect);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -42,9 +57,9 @@ export default function AuthClient() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace("/profile");
+      router.replace(safeRedirect);
     }
-  }, [status, router]);
+  }, [status, router, safeRedirect]);
 
   // Ошибки берём напрямую из query через useSearchParams,
   // чтобы SSR/CSR разметка совпадала и не было hydration mismatch.
@@ -91,7 +106,7 @@ export default function AuthClient() {
         <div className="my-6 h-px bg-gray-200 dark:bg-neutral-800" />
 
         <button
-          onClick={() => signIn("yandex", { callbackUrl: "/profile" })}
+          onClick={() => signIn("yandex", { callbackUrl: safeRedirect })}
           className="w-full rounded-md border py-2.5"
         >
           Войти через Яндекс
