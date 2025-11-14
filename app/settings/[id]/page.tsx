@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { loadSettingsFromLocalStorage, saveSettingsToLocalStorage, parseSettings, type Settings } from "@lib/settings";
 import { listPlugins, getPlugin } from "@/plugins";
+import PageLayout from "@/app/components/layouts/PageLayout";
+import SettingsTabs from "./Tabs";
 
 type Params = { id?: string };
 
@@ -24,6 +26,7 @@ export default function SettingsPage() {
   const [pluginSettingsError, setPluginSettingsError] = useState<string>("");
   const [saved, setSaved] = useState<null | Settings>(null);
   const [initializing, setInitializing] = useState(true);
+  // Эта страница отвечает за настройки устройства (дефолтная вкладка)
 
   useEffect(() => {
     let cancelled = false;
@@ -128,52 +131,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: "24px" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8 }}>Настройки устройства</h1>
+    <PageLayout title="Настройки" tabs={<SettingsTabs />}>
       <p style={{ color: "#555", marginBottom: 24 }}>
         ID устройства (хеш MAC): <code style={{ background: "#f2f2f2", padding: "2px 6px", borderRadius: 4 }}>{idParam || "—"}</code>
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
         <fieldset style={{ display: "grid", gap: 12 }}>
-          <legend style={{ fontWeight: 600, marginBottom: 4 }}>Настройки пользователя</legend>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontWeight: 500 }}>Имя</span>
-            <input
-              type="text"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              placeholder="Иван Иванов"
-              required
-              style={{
-                padding: "10px 12px",
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                outline: "none",
-              }}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontWeight: 500 }}>Возраст</span>
-            <input
-              type="number"
-              min={0}
-              value={userAge}
-              onChange={(e) => setUserAge(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder="30"
-              required
-              style={{
-                padding: "10px 12px",
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                outline: "none",
-              }}
-            />
-          </label>
-        </fieldset>
-
-        <fieldset style={{ display: "grid", gap: 12 }}>
-          <legend style={{ fontWeight: 600, marginBottom: 4 }}>Настройки устройства</legend>
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontWeight: 500 }}>Выбранный плагин</span>
             <select
@@ -238,7 +202,7 @@ export default function SettingsPage() {
           Сохранено локально для ID <code style={{ background: "#f2f2f2", padding: "2px 6px", borderRadius: 4 }}>{idParam}</code>.
         </p>
       )}
-    </main>
+    </PageLayout>
   );
 }
 
