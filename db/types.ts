@@ -21,6 +21,14 @@ export type DeviceDoc = {
 	registered_at?: Date;
 	firmwareVersion?: string;
 	model?: string;
+	info?:{
+		user?:{
+			name?: string;
+			age?: number;
+			address?: string;
+			room?: string;
+		};
+	};
 };
 
 export type DeviceMemberDoc = {

@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { loadSettingsFromLocalStorage, saveSettingsToLocalStorage, parseSettings, type Settings } from "@lib/settings";
-import { listPlugins, getPlugin } from "@/plugins";
 import PageLayout from "@/app/components/layouts/PageLayout";
 import SettingsTabs from "../Tabs";
 
@@ -16,54 +14,37 @@ export default function SettingsUserPage() {
 		return raw ?? "";
 	}, [params]);
 
-	const plugins = useMemo(() => listPlugins(), []);
-	const [userName, setUserName] = useState("");
+	const [userName, setUserName] = useState<string>("");
 	const [userAge, setUserAge] = useState<number | "">("");
-	const [pluginId, setPluginId] = useState<string>(plugins[0]?.id ?? "");
-	const [pluginSettingsText, setPluginSettingsText] = useState<string>("");
-	const [saved, setSaved] = useState<null | Settings>(null);
-	const [initializing, setInitializing] = useState(true);
+	const [address, setAddress] = useState<string>("");
+	const [room, setRoom] = useState<string>("");
+	const [saved, setSaved] = useState<boolean>(false);
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
 		let cancelled = false;
 		async function init() {
 			if (!idParam) return;
-			setInitializing(true);
-			const existing = loadSettingsFromLocalStorage(idParam);
-			if (existing) {
-				if (cancelled) return;
-				setUserName(existing.user.name);
-				setUserAge(existing.user.age);
-				setPluginId(existing.device.pluginId);
-				setPluginSettingsText(JSON.stringify(existing.device.pluginSettings, null, 2));
-				setSaved(existing);
-				setInitializing(false);
-				return;
-			}
+			// загрузка
 			try {
-				const res = await fetch(`/api/settings/${encodeURIComponent(idParam)}`, { cache: "no-store" });
+				const res = await fetch(`/api/device/info?id=${encodeURIComponent(idParam)}`, { cache: "no-store" });
 				if (cancelled) return;
 				if (res.ok) {
 					const data = await res.json().catch(() => null);
-					const parsed = data?.settings ? parseSettings(data.settings) : null;
-					if (parsed) {
-						setUserName(parsed.user.name);
-						setUserAge(parsed.user.age);
-						setPluginId(parsed.device.pluginId);
-						setPluginSettingsText(JSON.stringify(parsed.device.pluginSettings, null, 2));
-						setSaved(parsed);
-						setInitializing(false);
-						return;
+					const info = data?.info ?? {};
+					const user = info?.user ?? {};
+					if (user) {
+						if (typeof user.name === "string") setUserName(user.name);
+						if (typeof user.age === "number") setUserAge(user.age);
+						if (typeof user.address === "string") setAddress(user.address);
+						if (typeof user.room === "string") setRoom(user.room);
 					}
+					return;
 				}
 			} catch {
-				// ignore
+				// ignore network error
 			}
-			const p = getPlugin(pluginId) ?? plugins[0];
-			if (p) {
-				setPluginSettingsText(JSON.stringify(p.defaultSettings, null, 2));
-			}
-			setInitializing(false);
+			// завершили попытку загрузки
 		}
 		void init();
 		return () => {
@@ -73,34 +54,28 @@ export default function SettingsUserPage() {
 
 	async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
 		e.preventDefault();
-		const plugin = getPlugin(pluginId) ?? plugins[0];
-		const parsedDeviceSettings = (() => {
-			try {
-				return JSON.parse(pluginSettingsText || "{}");
-			} catch {
-				return plugin?.defaultSettings ?? {};
-			}
-		})();
-		const settings: Settings = {
-			user: {
-				name: userName.trim(),
-				age: typeof userAge === "number" ? userAge : parseInt(String(userAge || "0"), 10) || 0,
-			},
-			device: {
-				pluginId: plugin?.id ?? pluginId,
-				pluginSettings: parsedDeviceSettings,
-			},
-		};
-		saveSettingsToLocalStorage(idParam, settings);
-		setSaved(settings);
+		setError(null);
+		setSaved(false);
 		try {
-			await fetch(`/api/settings/${encodeURIComponent(idParam)}`, {
+			const res = await fetch(`/api/device/info`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(settings),
+				body: JSON.stringify({
+					id: idParam,
+					name: userName,
+					age: typeof userAge === "number" ? userAge : undefined,
+					address,
+					room,
+				}),
 			});
+			if (!res.ok) {
+				const data = await res.json().catch(() => null);
+				setError(data?.error || "Ошибка сохранения");
+				return;
+			}
+			setSaved(true);
 		} catch {
-			// ignore
+			setError("Сетевая ошибка");
 		}
 	}
 
@@ -112,7 +87,7 @@ export default function SettingsUserPage() {
 
 			<form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
 				<fieldset style={{ display: "grid", gap: 12 }}>
-					<legend style={{ fontWeight: 600, marginBottom: 4 }}>Настройки пользователя</legend>
+					<legend style={{ fontWeight: 600, marginBottom: 4 }}>Информация об устройстве (пользователь)</legend>
 					<label style={{ display: "grid", gap: 6 }}>
 						<span style={{ fontWeight: 500 }}>Имя</span>
 						<input
@@ -120,7 +95,6 @@ export default function SettingsUserPage() {
 							value={userName}
 							onChange={(e) => setUserName(e.target.value)}
 							placeholder="Иван Иванов"
-							required
 							style={{
 								padding: "10px 12px",
 								border: "1px solid #ddd",
@@ -137,7 +111,36 @@ export default function SettingsUserPage() {
 							value={userAge}
 							onChange={(e) => setUserAge(e.target.value === "" ? "" : Number(e.target.value))}
 							placeholder="30"
-							required
+							style={{
+								padding: "10px 12px",
+								border: "1px solid #ddd",
+								borderRadius: 8,
+								outline: "none",
+							}}
+						/>
+					</label>
+					<label style={{ display: "grid", gap: 6 }}>
+						<span style={{ fontWeight: 500 }}>Адрес</span>
+						<input
+							type="text"
+							value={address}
+							onChange={(e) => setAddress(e.target.value)}
+							placeholder="г. Москва, ул. Пушкина, д. 1"
+							style={{
+								padding: "10px 12px",
+								border: "1px solid #ddd",
+								borderRadius: 8,
+								outline: "none",
+							}}
+						/>
+					</label>
+					<label style={{ display: "grid", gap: 6 }}>
+						<span style={{ fontWeight: 500 }}>Комната</span>
+						<input
+							type="text"
+							value={room}
+							onChange={(e) => setRoom(e.target.value)}
+							placeholder="Например: Гостиная"
 							style={{
 								padding: "10px 12px",
 								border: "1px solid #ddd",
@@ -165,11 +168,12 @@ export default function SettingsUserPage() {
 				</div>
 			</form>
 
-			{saved && (
+			{error ? <p style={{ marginTop: 16, color: "#b91c1c" }}>{error}</p> : null}
+			{saved ? (
 				<p style={{ marginTop: 16, color: "#14834e" }}>
-					Сохранено локально для ID <code style={{ background: "#f2f2f2", padding: "2px 6px", borderRadius: 4 }}>{idParam}</code>.
+					Сохранено для ID <code style={{ background: "#f2f2f2", padding: "2px 6px", borderRadius: 4 }}>{idParam}</code>.
 				</p>
-			)}
+			) : null}
 		</PageLayout>
 	);
 }

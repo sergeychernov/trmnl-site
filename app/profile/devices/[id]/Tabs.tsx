@@ -9,14 +9,14 @@ export default function SettingsTabs() {
   const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
 
   const tabs = [
-    { href: `/settings/${encodeURIComponent(id)}`, label: "Плагин" },
-    { href: `/settings/${encodeURIComponent(id)}/user`, label: "Пользователь" },
+    { href: `/profile/devices/${encodeURIComponent(id)}`, label: "Плагин" },
+    { href: `/profile/devices/${encodeURIComponent(id)}/info`, label: "Информация" },
   ];
 
   return (
     <nav className="mb-6 flex items-center gap-2 text-sm">
       {tabs.map((tab) => {
-        const active = pathname === tab.href || (tab.href.endsWith("/user") && pathname?.startsWith(tab.href));
+        const active = pathname === tab.href || (tab.href.endsWith("/info") && pathname?.startsWith(tab.href));
         return (
           <Link
             key={tab.href}

@@ -8,6 +8,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type DeviceWithId = DeviceDoc & { _id: ObjectId };
+type DeviceProjection = Pick<
+	DeviceWithId,
+	"_id" | "friendly_id" | "name" | "hash" | "registered_at" | "firmwareVersion" | "model" | "info"
+>;
 
 export async function GET() {
 	try {
@@ -37,12 +41,7 @@ export async function GET() {
 
 		const devices = await devicesCol
 			.find({ _id: { $in: deviceIds } })
-			.project<
-				Pick<DeviceWithId, "_id" | "friendly_id" | "name" | "hash" | "registered_at"> & {
-					firmwareVersion?: string;
-					model?: string;
-				}
-			>({
+			.project<DeviceProjection>({
 				_id: 1,
 				friendly_id: 1,
 				name: 1,
@@ -50,6 +49,8 @@ export async function GET() {
 				registered_at: 1,
 				firmwareVersion: 1,
 				model: 1,
+				"info.user.address": 1,
+				"info.user.room": 1,
 			})
 			.toArray();
 
@@ -60,10 +61,11 @@ export async function GET() {
 			hash: d.hash,
 			registered_at: d.registered_at ?? null,
 			role: rolesByDeviceId.get(String(d._id)) ?? null,
-			firmwareVersion: (d as unknown as { firmwareVersion?: string }).firmwareVersion ?? null,
-			model: (d as unknown as { model?: string }).model ?? null,
+			firmwareVersion: d.firmwareVersion ?? null,
+			model: d.model ?? null,
+			address: d.info?.user?.address ?? null,
+			room: d.info?.user?.room ?? null,
 		}));
-		console.log(result);
 
 		return NextResponse.json({ devices: result });
 	} catch (error) {
