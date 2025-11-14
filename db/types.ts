@@ -19,6 +19,8 @@ export type DeviceDoc = {
 	updated_at: Date;
 	pin?: string;
 	registered_at?: Date;
+	firmwareVersion?: string;
+	model?: string;
 };
 
 export type DeviceMemberDoc = {

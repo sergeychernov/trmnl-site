@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProfileTabs from "../../Tabs";
 import { DeviceConnectErrorMessages } from "@/app/api/device/connect/errors";
+import PageLayout from "@/app/components/layouts/PageLayout";
 
 export default function ConnectDeviceClient() {
   const searchParams = useSearchParams();
@@ -14,10 +15,7 @@ export default function ConnectDeviceClient() {
   const router = useRouter();
 
   return (
-    <div className="mx-auto max-w-lg px-4 sm:px-6 py-10">
-      <h1 className="text-2xl font-semibold mb-4">Профиль</h1>
-      <ProfileTabs />
-
+    <PageLayout title="Профиль" tabs={<ProfileTabs />}>
       <div className="rounded-md bg-gray-100 dark:bg-neutral-800 p-4">
         <div className="text-sm opacity-80 mb-3">Добавить устройство</div>
 
@@ -77,7 +75,7 @@ export default function ConnectDeviceClient() {
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
         </form>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

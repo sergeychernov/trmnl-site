@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import ProfileTabs from "../Tabs";
 import Link from "next/link";
+import PageLayout from "@/app/components/layouts/PageLayout";
 
 export default function DevicesClient() {
   const { status } = useSession();
   const router = useRouter();
-  const [devices, setDevices] = useState<Array<{ id: string; name: string; friendly_id: string; hash: string; role: string | null }>>([]);
+  const [devices, setDevices] = useState<Array<{ id: string; name: string; friendly_id: string; hash: string; role: string | null; firmwareVersion: string | null; model: string | null }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +28,7 @@ export default function DevicesClient() {
       setError(null);
       try {
         const res = await fetch("/api/devices", { cache: "no-store" });
-        const data: { devices?: Array<{ id: string; name: string; friendly_id: string; hash: string; role: string | null }> } =
+        const data: { devices?: Array<{ id: string; name: string; friendly_id: string; hash: string; role: string | null; firmwareVersion: string | null; model: string | null }> } =
           await res.json().catch(() => ({}));
         if (!cancelled) {
           setDevices(data.devices ?? []);
@@ -44,10 +45,7 @@ export default function DevicesClient() {
     };
   }, [status]);
   return (
-    <div className="mx-auto max-w-lg px-4 sm:px-6 py-10">
-      <h1 className="text-2xl font-semibold mb-4">Профиль</h1>
-      <ProfileTabs />
-
+    <PageLayout title="Профиль" tabs={<ProfileTabs />}>
       <div className="rounded-md bg-gray-100 dark:bg-neutral-800 p-4">
         <div className="text-sm opacity-80">Устройства</div>
         {loading ? (
@@ -73,9 +71,9 @@ export default function DevicesClient() {
                 }}
                 title="Открыть настройки устройства"
               >
-                <div className="font-medium">{d.name || d.friendly_id}</div>
+                <div className="font-medium">{d.model || "—"}</div>
                 <div className="text-xs opacity-70">
-                  {d.friendly_id} {d.role ? `· ${d.role}` : ""}
+                  {d.firmwareVersion ?? "—"} {d.role ? `· ${d.role}` : ""}
                 </div>
               </li>
             ))}
@@ -90,7 +88,7 @@ export default function DevicesClient() {
           Добавить устройство
         </Link>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

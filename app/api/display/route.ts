@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 			{ status: 200 },
 		);
 	}
-	const { protocol, host, mac, width, height } = headers;
+	const { protocol, host, mac, width, height, firmwareVersion, model } = headers;
 
 	const base = `${protocol}://${host}`;
 
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
 					const pin = computeSixDigitPinFromMac(mac);
 					await devicesCol.updateOne(
 						{ mac },
-						{ $set: { pin, updated_at: new Date() } },
+						{ $set: { pin, updated_at: new Date(), firmwareVersion, model } },
 					);
 					device.pin = pin;
 				}
