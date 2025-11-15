@@ -15,7 +15,7 @@ export default function HelloEditor({ value, onChange }: PluginEditorProps<Hello
 				<span className="text-sm font-medium">Сообщение</span>
 				<input
 					type="text"
-					value={value.message}
+					value={value.message ?? ""}
 					onChange={(e) => update({ message: e.target.value })}
 					className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
 				/>
@@ -23,7 +23,7 @@ export default function HelloEditor({ value, onChange }: PluginEditorProps<Hello
 			<label className="grid gap-1">
 				<span className="text-sm font-medium">Ориентация</span>
 				<select
-					value={value.orientation}
+					value={value.orientation ?? "landscape"}
 					onChange={(e) => update({ orientation: e.target.value as HelloSettings["orientation"] })}
 					className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
 				>

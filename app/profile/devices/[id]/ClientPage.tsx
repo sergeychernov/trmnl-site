@@ -46,6 +46,8 @@ function RenderLayoutControlsAndPreview({ id, device }: { id: string; device: Pu
 	});
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
+	// Nonce для предотвращения кеша в превью. На SSR/первом клиентском рендере пустой, чтобы не вызывать гидрационный расход.
+	const [previewNonce, setPreviewNonce] = useState<string>("");
 
 	const childCount = Math.max(1, editorState.ratios ? editorState.ratios.length : 1);
 	const effectiveWidth = editorState.portrait ? height : width;
@@ -121,6 +123,10 @@ function RenderLayoutControlsAndPreview({ id, device }: { id: string; device: Pu
 			cancelled = true;
 		};
 	}, [blocks, selectedBlock]);
+	// Обновляем nonce при изменении настроек блоков или размеров редактора (после гидратации)
+	useEffect(() => {
+		setPreviewNonce(String(Date.now()));
+	}, [blocks, editorState.ratios, editorState.orientation, effectiveWidth, effectiveHeight]);
 
 	async function handleSaveLayout() {
 		setSaving(true);
@@ -184,7 +190,8 @@ function RenderLayoutControlsAndPreview({ id, device }: { id: string; device: Pu
 						const h = blockSizes[idx]?.height ?? 0;
 						const blk = blocks[idx] ?? { id: defaultPlugin?.id ?? "empty", settings: defaultPlugin?.defaultSettings ?? {} };
 						const settingsParam = encodeURIComponent(JSON.stringify(blk.settings ?? {}));
-						const src = `/api/render/plugin?plugin=${encodeURIComponent(blk.id)}&width=${w}&height=${h}&index=${idx + 1}&settings=${settingsParam}`;
+						const base = `/api/render/plugin?plugin=${encodeURIComponent(blk.id)}&width=${w}&height=${h}&index=${idx + 1}&settings=${settingsParam}`;
+						const src = previewNonce ? `${base}&t=${previewNonce}` : base;
 						return (
 							<button
 								type="button"
