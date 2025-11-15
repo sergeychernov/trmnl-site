@@ -1,5 +1,5 @@
 import type { Orientation, Plugin } from "../types";
-import type { UserSettings } from "@/lib/settings";
+import type { UserSettings, PluginRenderContext } from "@/plugins/types";
 import { createQrMatrix, computeQrLayout, drawQrPacked } from "@/lib/qr";
 
 type RegistrationSettings = {
@@ -37,20 +37,20 @@ function rotatePointForPortrait(x: number, y: number, width: number, height: num
 const registration: Plugin<RegistrationSettings> = {
 	id: "registration",
 	name: "Registration QR",
-	outputSize: { width: 800, height: 480 },
+	outputSizes: [{ width: 800, height: 480 }],
 	defaultSettings: {
 		orientation: "landscape",
 		marginModules: 4,
 	},
 	validate,
-	async render(_user: UserSettings, device: RegistrationSettings, ctx: { deviceId: string | null; baseUrl: string }) {
-		const width = registration.outputSize.width;
-		const height = registration.outputSize.height;
+	editor: async () => (await import("./Editor")).default,
+	async render({ settings, context, width, height }: { user?: UserSettings; settings?: RegistrationSettings; context?: PluginRenderContext; width: number; height: number }) {
+		const d = settings ?? registration.defaultSettings;
 		const data = createMonochromeBuffer(width, height);
 
 		// Формируем ссылку: {baseUrl}/settings/{deviceId}
-		const base = (ctx.baseUrl || "").replace(/\/+$/, "");
-		const idPath = ctx.deviceId ? `/${ctx.deviceId}` : "";
+		const base = (context?.baseUrl || "").replace(/\/+$/, "");
+		const idPath = context?.deviceId ? `/${context.deviceId}` : "";
 		const url = `${base}/settings${idPath}`;
 
 		// Генерация QR матрицы
@@ -58,11 +58,11 @@ const registration: Plugin<RegistrationSettings> = {
 		const size = matrix.size;
 
 		// Рассчитываем масштаб (квадрат наибольшего размера, центрируем)
-		const marginModules = typeof device.marginModules === "number" ? Math.max(0, device.marginModules) : 4;
+		const marginModules = typeof d.marginModules === "number" ? Math.max(0, d.marginModules) : 4;
 		const { scale, offsetX, offsetY } = computeQrLayout(width, height, size, marginModules);
 
 		const putPixel = (x: number, y: number) => {
-			if (device.orientation === "portrait") {
+			if (d.orientation === "portrait") {
 				const p = rotatePointForPortrait(x, y, width, height);
 				setPixelBlackPacked(data, width, height, p.x, p.y);
 			} else {

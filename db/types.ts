@@ -37,7 +37,16 @@ export type DeviceDoc = {
 		};
 	};
 	plugins?: Plugin[];
-	layout?: string
+	layout?: LayoutConfig;
+};
+
+export type LayoutConfig = {
+	orientation: "horizontal" | "vertical";
+	portrait: boolean;
+	/** Человекочитаемая запись пропорций вида "1:2:1" */
+	ratiosText: string;
+	/** Нормализованные числовые веса (например, [1,2,1]) */
+	ratios: number[];
 };
 
 export type DeviceMemberDoc = {

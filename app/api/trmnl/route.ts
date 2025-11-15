@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { getPlugin } from "@/plugins";
-import type { Settings, UserSettings } from "@/lib/settings";
+import { getPlugin, pickDefaultSize } from "@/plugins";
+import { renderPlugin } from "@/plugins/server";
+import type { Settings } from "@/lib/settings";
+import type { UserSettings } from "@/plugins/types";
 import { getDb } from "@/lib/mongodb";
 import { hashMacAddress } from "@lib/hash";
 import { getBaseUrl } from "@/lib/parsers";
@@ -69,19 +71,23 @@ export async function GET(request: Request) {
 	}
 	const pluginTyped = plugin as import("@/plugins").Plugin<Record<string, unknown>>;
 	const context = { deviceId, baseUrl: origin };
-	const image = await pluginTyped.render(user, deviceSettings, context);
+	const { width: targetWidth, height: targetHeight } = pickDefaultSize(pluginTyped.outputSizes, { width: 800, height: 480 });
+	const image = await renderPlugin(pluginTyped, { user, settings: deviceSettings, context, index: 0, width: targetWidth, height: targetHeight });
+	if (!image) {
+		return NextResponse.json({ error: "unsupported size for plugin" }, { status: 400 });
+	}
 
 	// Геометрия из результата плагина
-	const width = image.width;
-	const height = image.height;
+	const imgWidth = image.width;
+	const imgHeight = image.height;
 	const bitsPerPixel = 1; // 1bpp, монохром
 	// Локальная отладка (раскомментировать при необходимости)
 	// console.log(request.headers);
 	// console.log(url.searchParams);
 
 	// Размер строки в байтах: выровнено к 4 байтам
-	const rowSizeBytes = Math.ceil((width * bitsPerPixel) / 32) * 4; // формула BMP
-	const pixelDataSize = rowSizeBytes * height;
+	const rowSizeBytes = Math.ceil((imgWidth * bitsPerPixel) / 32) * 4; // формула BMP
+	const pixelDataSize = rowSizeBytes * imgHeight;
 
 	// Заголовки: 14 (BITMAPFILEHEADER) + 40 (BITMAPINFOHEADER) + 8 (2 записи палитры по 4 байта)
 	const fileHeaderSize = 14;
@@ -114,9 +120,9 @@ export async function GET(request: Request) {
 	// --- BITMAPINFOHEADER (40 байт) ---
 	view.setUint32(offset, infoHeaderSize, true); // biSize
 	offset += 4;
-	view.setInt32(offset, width, true); // biWidth
+	view.setInt32(offset, imgWidth, true); // biWidth
 	offset += 4;
-	const biHeight = topDown ? -height : height; // отрицательный — top-down
+	const biHeight = topDown ? -imgHeight : imgHeight; // отрицательный — top-down
 	view.setInt32(offset, biHeight, true); // biHeight
 	offset += 4;
 	view.setUint16(offset, 1, true); // biPlanes
@@ -160,14 +166,14 @@ export async function GET(request: Request) {
 	// Утилиты рисования с трансформацией координат
 	const mapXY = (x: number, y: number) => {
 		if (rotate === 180) {
-			return { mx: width - 1 - x, my: height - 1 - y };
+			return { mx: imgWidth - 1 - x, my: imgHeight - 1 - y };
 		}
 		return { mx: x, my: y };
 	};
 	const setPixelBlack = (x: number, yTop: number) => {
-		if (x < 0 || x >= width || yTop < 0 || yTop >= height) return;
+		if (x < 0 || x >= imgWidth || yTop < 0 || yTop >= imgHeight) return;
 		const { mx, my } = mapXY(x, yTop);
-		const rowIndex = topDown ? my : height - 1 - my; // top-down или bottom-up
+		const rowIndex = topDown ? my : imgHeight - 1 - my; // top-down или bottom-up
 		const rowOffset = startPixelData + rowIndex * rowSizeBytes;
 		const byteIndex = rowOffset + (mx >> 3);
 		const mask = 0x80 >> (mx & 7);
@@ -175,9 +181,9 @@ export async function GET(request: Request) {
 	};
 
 	// Перенос данных из MonochromeImage в BMP-буфер
-	const bytesPerRowPacked = Math.ceil(width / 8);
-	for (let y = 0; y < height; y++) {
-		for (let x = 0; x < width; x++) {
+	const bytesPerRowPacked = Math.ceil(imgWidth / 8);
+	for (let y = 0; y < imgHeight; y++) {
+		for (let x = 0; x < imgWidth; x++) {
 			const packedIndex = y * bytesPerRowPacked + (x >> 3);
 			const bit = (image.data[packedIndex] >> (7 - (x & 7))) & 1;
 			if (bit === 1) {

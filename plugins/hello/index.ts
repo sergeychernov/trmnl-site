@@ -1,5 +1,5 @@
 import type { Orientation, Plugin } from "../types";
-import type { UserSettings } from "@/lib/settings";
+import type { UserSettings, PluginRenderContext } from "@/plugins/types";
 import { hashString } from "@lib/hash";
 
 type HelloSettings = {
@@ -42,14 +42,16 @@ function patternFromHash(hashHex: string, width: number, height: number): Uint8A
 const hello: Plugin<HelloSettings> = {
 	id: "hello",
 	name: "Hello (пример)",
-	outputSize: { width: 800, height: 480 }, // TRMNL, см. BYOS README
+	outputSizes: [{ width: 800, height: 480 }, { width: 200, height: 480 }], // TRMNL и узкий блок 200x480
 	defaultSettings: { message: "Hello, TRMNL!", orientation: "landscape" },
 	validate,
-	async render(user: UserSettings, device: HelloSettings, _ctx: { deviceId: string | null; baseUrl: string }) {
+	editor: async () => (await import("./Editor")).default,
+	async render({ user, settings, width, height }: { user?: UserSettings; settings?: HelloSettings; context?: PluginRenderContext; width: number; height: number }) {
 		// Ориентация влияет на "посев", но размер остается фиксированным для плагина
-		const seed = `${user.name}:${device.message}:${user.age}:${device.orientation}`;
+		const u = user ?? { name: "", age: 0 };
+		const d = settings ?? hello.defaultSettings;
+		const seed = `${u.name}:${d.message}:${u.age}:${d.orientation}`;
 		const hashHex = hashString(seed);
-		const { width, height } = hello.outputSize;
 		const data = patternFromHash(hashHex, width, height);
 		return {
 			width,

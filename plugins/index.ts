@@ -5,6 +5,7 @@ import hello from "./hello";
 import calendar from "./calendar";
 import registration from "./registration";
 import symbols from "./supported-symbols";
+import empty from "./empty";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const registry: Record<string, Plugin<any>> = {
@@ -12,6 +13,7 @@ const registry: Record<string, Plugin<any>> = {
 	[calendar.id]: calendar,
 	[registration.id]: registration,
 	[symbols.id]: symbols,
+	[empty.id]: empty,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +25,6 @@ export function getPlugin<T extends object = Record<string, unknown>>(id: string
 	return registry[id] as Plugin<T> | undefined;
 }
 
-export type { Plugin } from "./types";
+export * from "./types";
 
 

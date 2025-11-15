@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getPlugin } from "@/plugins";
-import type { UserSettings } from "@/lib/settings";
-import { hashMacAddress } from "@lib/hash";
-import { getBaseUrl, parsePluginRenderSearchParams } from "@/lib/parsers";
+import type { UserSettings } from "@/plugins/types";
+import { getBaseUrl } from "@/lib/parsers";
+import { renderPlugin } from "@/plugins/server";
+import { toMonochromeBmp } from "@lib/bmp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,33 +11,59 @@ export const dynamic = "force-dynamic";
 // Универсальный рендер BMP 1bpp для произвольного плагина (?plugin=id)
 export async function GET(request: Request) {
 	const url = new URL(request.url);
-	const params = parsePluginRenderSearchParams(request);
-	if (!params) {
-		return NextResponse.json({ error: "invalid or missing parameters (mac, ts, width, height, layout, plugins)" }, { status: 400 });
+	const pluginId = url.searchParams.get("plugin")?.trim();
+	const widthNum = Math.trunc(Number(url.searchParams.get("width")));
+	const heightNum = Math.trunc(Number(url.searchParams.get("height")));
+	const indexNum = Math.trunc(Number(url.searchParams.get("index") ?? "1"));
+	if (!pluginId || !Number.isFinite(widthNum) || !Number.isFinite(heightNum) || widthNum <= 0 || heightNum <= 0) {
+		return NextResponse.json({ error: "invalid or missing parameters (plugin, width, height[, index])" }, { status: 400 });
 	}
-	const { width, height, layout, plugins } = params;
-	const deviceId = hashMacAddress(params.mac);
-	switch (layout) {
-		case "single-portrait":
-			break;
-		case "single-landscape":
-			break;
-		case "double-portrait":
-			break;
-		case "double-landscape":
-			const plugin = getPlugin(plugins[0].name);
-			if (!plugin) {
-				return NextResponse.json({ error: "plugin not found" }, { status: 404 });
+	const width = widthNum;
+	const height = heightNum;
+	const index = Number.isFinite(indexNum) && indexNum > 0 ? indexNum : 1;
+	let settings: Record<string, unknown> = {};
+	const settingsParam = url.searchParams.get("settings");
+	if (settingsParam) {
+		try {
+			const parsed = JSON.parse(settingsParam);
+			if (parsed && typeof parsed === "object") {
+				settings = parsed as Record<string, unknown>;
 			}
-			return NextResponse.json({ error: "TODO: render plugin" }, { status: 400 });
-			//const image = await plugin.render({ name: "", age: 0 }, plugins[0].settings, { deviceId, baseUrl: url.origin });
-			break;
-		default:
-			return NextResponse.json({ error: "invalid layout" }, { status: 400 });
+		} catch {
+			// игнорируем, оставляем пустые settings
+		}
 	}
 
+	const plugin = getPlugin(pluginId);
+	if (!plugin) {
+		return NextResponse.json({ error: "plugin not found" }, { status: 404 });
+	}
+	const origin = getBaseUrl(request);
+	const user: UserSettings = { name: "", age: 0 }; // по умолчанию
+	const context = { deviceId: null, baseUrl: origin };
+	const image = await renderPlugin(plugin as import("@/plugins").Plugin<Record<string, unknown>>, {
+		user,
+		settings,
+		context,
+		index,
+		width,
+		height,
+	});
+	if (!image) {
+		return NextResponse.json({ error: "unsupported size for plugin" }, { status: 400 });
+	}
 
-	return NextResponse.json({ error: "implement me" }, { status: 400 });
+	// Сборка BMP через библиотеку
+	const bmp = toMonochromeBmp(image, { topDown: false, invert: false });
+	const buf = new ArrayBuffer(bmp.byteLength);
+	new Uint8Array(buf).set(bmp);
+	return new NextResponse(buf, {
+		headers: {
+			"Content-Type": "image/bmp",
+			"Content-Length": String(bmp.byteLength),
+			"Cache-Control": "no-cache",
+		},
+	});
 }
 
 

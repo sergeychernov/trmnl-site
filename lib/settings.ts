@@ -1,7 +1,4 @@
-export type UserSettings = {
-	name: string;
-	age: number;
-};
+import type { UserSettings } from "@/plugins/types";
 
 export type DeviceSettings = {
 	pluginId: string;

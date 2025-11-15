@@ -2,21 +2,50 @@
 
 ### Цель
 - Плагины генерируют монохромное изображение для TRMNL на основе настроек пользователя и устройства.
-- Размер изображения у каждого плагина фиксирован через поле `outputSize`.
+- Поддержка размеров задаётся через `outputSizes` (набор пресетов и/или отсутствие ограничений).
 
 ### Контракт плагина
 - Файл: `plugins/${pluginName}/index.ts`, экспорт по умолчанию:
   - `id: string`, `name: string`
-  - `outputSize: { width: number; height: number }` — фиксированный размер
+  - `outputSizes: Array<{ width?: number; height?: number }>` — список поддерживаемых размеров:
+    - если указаны и `width`, и `height` — фиксированный пресет (конкретный размер);
+    - если указано только `width` — ширина фиксирована, высота не ограничена;
+    - если указана только `height` — высота фиксирована, ширина не ограничена;
+    - если объект пустой `{}` — без ограничений по размеру;
+    - **пустой массив `[]` — без ограничений по размерам вообще** (любой `width`/`height`).
   - `defaultSettings: TSettings` — значения по умолчанию
   - `validate(value): value is TSettings` — рантайм‑валидация
-  - `render(user: UserSettings, device: TSettings, context: { deviceId: string | null; baseUrl: string }): Promise<MonochromeImage>`
+  - `render(args: RenderArgs<TSettings>): Promise<MonochromeImage> | React.ReactElement`
+    - `RenderArgs<TSettings>`:
+      - `user?: UserSettings`
+      - `settings?: TSettings`
+      - `context?: { deviceId: string | null; baseUrl: string }`
+      - `index: number` — порядковый номер блока на экране (начиная с 1)
+      - `width: number`, `height: number` — целевой размер изображения
 - Регистрация плагина: `plugins/index.ts` (реестр и функции `listPlugins`, `getPlugin`)
 
 ### Формат изображения
 - `MonochromeImage`:
   - `width`, `height` — пиксели
   - `data: Uint8Array` — 1 бит на пиксель, упакован побайтно (MSB→LSB), порядок: строка за строкой
+
+### Серверный рендер и совместимость размеров
+- Для серверного рендера используется обёртка `renderPlugin(plugin, args)`:
+  - выполняет проверку размеров через `isSizeAllowed(plugin.outputSizes, width, height)`;
+  - принимает результат `render`:
+    - если это `ReactElement`, преобразует OG‑пайплайном в 1bpp (используются системные шрифты Noto Sans / Noto Sans Mono);
+    - если это `MonochromeImage`, возвращает как есть.
+- Если размер не поддержан — возвращается `null`, вызывающая сторона должна обработать это (обычно 400).
+- Рекомендуется перечислять все поддерживаемые пресеты в `outputSizes`. Если ограничений нет — используйте `[]` или `{}`.
+
+### API предпросмотра плагина
+- Эндпойнт: `/api/render/plugin`
+- Query‑параметры:
+  - `plugin` — идентификатор плагина (обязателен)
+  - `width`, `height` — размеры в пикселях (обязательны, > 0)
+  - `index` — индекс блока (необязателен, по умолчанию 1)
+  - `settings` — JSON‑строка с настройками плагина (необязателен)
+- Ответ: монохромный `image/bmp` (1bpp). При неподдерживаемом размере — `400`.
 
 ### Настройки
 - Общие настройки:
@@ -28,10 +57,14 @@
  - Плагин не должен зависеть от `baseUrl`/`deviceId` через `device` — эти значения приходят в `context`.
 
 ### Ограничения и рекомендации
-- Размер TRMNL: 800×480 (см. BYOS Next.js README `https://github.com/usetrmnl/byos_next/blob/main/README.md`).
+- Рекомендованный размер TRMNL: 800×480 (см. BYOS Next.js README `https://github.com/usetrmnl/byos_next/blob/main/README.md`).
+  - Если плагин поддерживает только этот размер, укажите `outputSizes: [{ width: 800, height: 480 }]`.
+  - Если плагин поддерживает несколько пресетов — перечислите их в `outputSizes`.
+  - Если плагин не ограничивает размеры — укажите `outputSizes: []` или включите пресет `{}`.
 - Производительность: избегать лишних аллокаций; сложность O(width × height).
 - Детерминизм: `render` должен быть чистым относительно входных данных.
 - Кросс‑платформенность: не использовать Node‑специфику в плагинах, если они вызываются в браузере.
+  - Если `render` возвращает `ReactElement`, избегайте побочных эффектов и сетевых запросов — OG‑пайплайн должен быть детерминированным.
 
 ### Рендер текста (canvasText)
 - Используем только `@lib/canvasText` для вывода текста в монохромный буфер:

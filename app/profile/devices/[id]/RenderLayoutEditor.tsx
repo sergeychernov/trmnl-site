@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { buildRatioOptions, parseRatios } from "@/lib/ratios";
 
 type Orientation = "horizontal" | "vertical";
 
@@ -17,86 +18,6 @@ type RenderLayoutEditorProps = {
 		ratios: number[] | undefined;
 	}) => void;
 };
-
-function parseRatios(input: string): number[] | undefined {
-	const parts = (input || "").split(":").map((p) => p.trim()).filter(Boolean);
-	if (parts.length === 0) return undefined;
-	const nums = parts.map((p) => {
-		const v = Math.trunc(Number(p));
-		return Number.isFinite(v) && v > 0 ? v : 1;
-	});
-	return nums;
-}
-
-// (удалено) прежний вариант calculateRatioList(width) заменён объединяющим вариантом для width и height
-
-function gcd(a: number, b: number): number {
-	let x = Math.abs(a);
-	let y = Math.abs(b);
-	while (y !== 0) {
-		const t = y;
-		y = x % y;
-		x = t;
-	}
-	return Math.max(1, x);
-}
-
-function calculateRatioList(width: number, height: number): number[][] {
-	const g = gcd(width, height);
-	const result: number[][] = [];
-	const pushUnique = (arr: number[]) => {
-		// Нормализуем веса (убираем кратность), чтобы 1:1 == 2:2 == 3:3
-		const normG = arr.reduce((acc, v) => gcd(acc, v));
-		const normalized = arr.map((v) => Math.trunc(v / Math.max(1, normG)));
-		const key = normalized.join(":");
-		if (!result.find((r) => r.join(":") === key)) result.push(normalized);
-	};
-	// Базовый кейс — одна секция
-	pushUnique([1]);
-	// Равные части, если количество частей делит g
-	for (let k = 2; k <= 6; k++) {
-		if (g % k === 0) pushUnique(Array.from({ length: k }, () => 1));
-	}
-	// Алгоритмически генерируем некоторые асимметричные наборы (без предзаданных пресетов)
-	// Для 2 частей
-	for (let a = 1; a <= 4; a++) {
-		for (let b = 1; b <= 4; b++) {
-			const s = a + b;
-			if (g % s === 0) pushUnique([a, b]);
-		}
-	}
-	// Для 3 частей
-	for (let a = 1; a <= 3; a++) {
-		for (let b = 1; b <= 3; b++) {
-			for (let c = 1; c <= 3; c++) {
-				const s = a + b + c;
-				if (g % s === 0) pushUnique([a, b, c]);
-			}
-		}
-	}
-	// Для 4 частей (ограничим веса для компактности)
-	for (let a = 1; a <= 2; a++) {
-		for (let b = 1; b <= 2; b++) {
-			for (let c = 1; c <= 2; c++) {
-				for (let d = 1; d <= 2; d++) {
-					const s = a + b + c + d;
-					if (g % s === 0) pushUnique([a, b, c, d]);
-				}
-			}
-		}
-	}
-	return result;
-}
-
-function buildRatioOptions(width: number, height: number): Array<{ label: string; value: string; ratios: number[] }> {
-	const ratios = calculateRatioList(width, height);
-	const options = ratios.map((r) => {
-		const text = r.join(":");
-		const label = text === "1" ? "На весь экран" : text;
-		return { label, value: text, ratios: r };
-	});
-	return options.length > 0 ? options : [{ label: "На весь экран", value: "1", ratios: [1] }];
-}
 
 export default function RenderLayoutEditor({
 	width,

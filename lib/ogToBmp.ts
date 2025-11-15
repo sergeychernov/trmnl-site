@@ -67,6 +67,39 @@ export async function normalizeOgFonts(fonts: OgFontSpec[] | undefined): Promise
 	return out;
 }
 
+export async function renderOgElementToPacked1bpp(
+	element: React.ReactElement,
+	options: {
+		width: number;
+		height: number;
+		scale?: number;
+		fonts?: OgFontSpec[];
+		gamma?: number;
+	},
+): Promise<Uint8Array> {
+	const width = Math.max(1, Math.floor(options.width));
+	const height = Math.max(1, Math.floor(options.height));
+	const scale = Math.max(1, Math.floor(options.scale ?? 1));
+	const ogFonts = await normalizeOgFonts(options.fonts);
+	const png = await new ImageResponse(element, {
+		width: width * scale,
+		height: height * scale,
+		// Структурно совместимое приведение без использования any
+		fonts: ogFonts as unknown as MinimalFontOptions,
+		debug: false,
+	}).arrayBuffer();
+	const packed = await pngBufferToPacked1bppAtkinson(
+		Buffer.from(png),
+		width,
+		height,
+		{
+			downscaleFrom: scale > 1 ? { width: width * scale, height: height * scale } : undefined,
+			gamma: options.gamma ?? 1.8,
+		},
+	);
+	return packed;
+}
+
 export async function renderOgElementToBmp(
 	element: React.ReactElement,
 	options: {

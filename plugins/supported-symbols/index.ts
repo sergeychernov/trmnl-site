@@ -1,5 +1,5 @@
 import type { Orientation, Plugin } from "../types";
-import type { UserSettings } from "@/lib/settings";
+import type { UserSettings, PluginRenderContext } from "@/plugins/types";
 import { drawCanvasTextToBuffer, measureCanvasText } from "@lib/canvasText";
 
 type SymbolsSettings = {
@@ -22,12 +22,11 @@ function createMonochromeBuffer(width: number, height: number): Uint8Array {
 const symbols: Plugin<SymbolsSettings> = {
 	id: "supported-symbols",
 	name: "Поддерживаемые символы",
-	outputSize: { width: 800, height: 480 },
+	outputSizes: [{ width: 800, height: 480 }],
 	defaultSettings: { orientation: "landscape" },
 	validate,
-	async render(_user: UserSettings, _device: SymbolsSettings, _ctx: { deviceId: string | null; baseUrl: string }) {
-		const width = symbols.outputSize.width;
-		const height = symbols.outputSize.height;
+	editor: async () => (await import("./Editor")).default,
+	async render({ width, height }: { user?: UserSettings; settings?: SymbolsSettings; context?: PluginRenderContext; width: number; height: number }) {
 		const data = createMonochromeBuffer(width, height);
 
 		const scale = 24; // px

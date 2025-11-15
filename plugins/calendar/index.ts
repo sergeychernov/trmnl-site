@@ -1,5 +1,5 @@
 import type { Orientation, Plugin } from "../types";
-import type { UserSettings } from "@/lib/settings";
+import type { UserSettings, PluginRenderContext } from "@/plugins/types";
 import { drawCanvasTextToBuffer, measureCanvasText } from "@lib/canvasText";
 
 type CalendarSettings = {
@@ -51,17 +51,17 @@ function rotatePointForPortrait(x: number, y: number, width: number, height: num
 const calendar: Plugin<CalendarSettings> = {
 	id: "calendar",
 	name: "Calendar",
-	outputSize: { width: 800, height: 480 },
+	outputSizes: [{ width: 800, height: 480 }],
 	defaultSettings: { orientation: "landscape", drawBorder: true, showMac: true },
 	validate,
+	editor: async () => (await import("./Editor")).default,
 	// Параметры пользователя и контекста не используются
-	async render(_user: UserSettings, device: CalendarSettings, _ctx: { deviceId: string | null; baseUrl: string }) {
-		const width = calendar.outputSize.width;
-		const height = calendar.outputSize.height;
+	async render({ settings, width, height }: { user?: UserSettings; settings?: CalendarSettings; context?: PluginRenderContext; width: number; height: number }) {
+		const d = settings ?? calendar.defaultSettings;
 		const data = createMonochromeBuffer(width, height);
 
 		// Фон — белый (массив уже заполнен нулями)
-		if (device.drawBorder) {
+		if (d.drawBorder) {
 			drawBorder(data, width, height);
 		}
 
@@ -87,7 +87,7 @@ const calendar: Plugin<CalendarSettings> = {
 		const startX = Math.max(2, Math.floor((width - dm.width) / 2));
 		const startY = Math.max(2, Math.floor((height - dm.height) / 2));
 
-		if (device.orientation === "portrait") {
+		if (d.orientation === "portrait") {
 			// Рендер в temp-буфер и поворот пикселей
 			const temp = createMonochromeBuffer(width, height);
 			drawCanvasTextToBuffer({ data: temp, width, height }, dateText, startX, startY, dateOpts);
@@ -107,8 +107,8 @@ const calendar: Plugin<CalendarSettings> = {
 		}
 
 		// MAC снизу по центру (если доступен)
-		if (device.showMac && device.macHex && device.macHex.length === 12) {
-			const groups = device.macHex.match(/.{1,2}/g) as string[];
+		if (d.showMac && d.macHex && d.macHex.length === 12) {
+			const groups = d.macHex.match(/.{1,2}/g) as string[];
 			const macText = groups.join("-");
 			let macFont = Math.max(8, Math.floor(height * 0.04));
 			let macOpts = { fontFamily: "monospace", fontSize: macFont, fontWeight: "normal", thresholdAlpha: 64 };
@@ -121,7 +121,7 @@ const calendar: Plugin<CalendarSettings> = {
 			const macX = Math.max(2, Math.floor((width - mm.width) / 2));
 			const macY = Math.max(2, height - mm.height - 8);
 
-			if (device.orientation === "portrait") {
+			if (d.orientation === "portrait") {
 				const temp = createMonochromeBuffer(width, height);
 				drawCanvasTextToBuffer({ data: temp, width, height }, macText, macX, macY, macOpts);
 				const bytesPerRow = Math.ceil(width / 8);
