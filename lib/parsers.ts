@@ -212,4 +212,32 @@ export function parseRenderSearchParams(request: Request): RenderSearchParams | 
 	return { rotate, mac, ts, width, height };
 }
 
+// Расширенный разбор query-параметров для плагин-рендера:
+// добавляет layout (строка) и plugins (JSON)
+import type { Plugin as DevicePlugin } from "@/db/types";
+export type PluginRenderSearchParams = RenderSearchParams & {
+	layout: string;
+	plugins: DevicePlugin[];
+};
+
+export function parsePluginRenderSearchParams(request: Request): PluginRenderSearchParams | null {
+	const base = parseRenderSearchParams(request);
+	if (!base) return null;
+	const url = new URL(request.url);
+	const layout = url.searchParams.get("layout") || undefined;
+	const plugins = url.searchParams.get("plugins") || undefined;
+	if (!layout || !plugins) return null;
+
+	try {
+		const pluginsJson = JSON.parse(plugins);
+		if (Array.isArray(pluginsJson)) {
+			return { ...base, layout, plugins: pluginsJson };
+		}
+	} catch (e) {
+		console.error("Failed to parse plugins JSON:", e);
+	}
+
+	return null;
+}
+
 

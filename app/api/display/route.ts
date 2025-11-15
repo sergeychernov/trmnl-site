@@ -18,6 +18,7 @@ export async function GET(request: Request) {
 	const intervalParam = url.searchParams.get("interval");
 	const refresh_rate = Number.isFinite(Number(intervalParam)) ? Math.max(5, Number(intervalParam)) : 180;
 	const headers = parseDisplayHeaders(request);
+	console.log("headers", headers);
 	if (!headers) {
 		console.error("Invalid headers");
 		return NextResponse.json(
@@ -44,13 +45,22 @@ export async function GET(request: Request) {
 		const devicesCol = db.collection<DeviceDoc>("devices");
 		const device = await devicesCol.findOne<DeviceDoc>({ mac });
 		if (device) {
-			console.log(`Device found: ${device.friendly_id} (${device.name})`);
+			console.log(`Device found: ${device.hash} (${device.hardware?.model || "—"})`);
 			if (!device.registered_at) {
 				if (!device.pin) {
 					const pin = computeSixDigitPinFromMac(mac);
 					await devicesCol.updateOne(
 						{ mac },
-						{ $set: { pin, updated_at: new Date(), firmwareVersion, model } },
+						{
+							$set: {
+								pin,
+								updated_at: new Date(),
+								firmwareVersion,
+								"hardware.model": model,
+								"hardware.width": width,
+								"hardware.height": height
+							}
+						},
 					);
 					device.pin = pin;
 				}
@@ -62,7 +72,18 @@ export async function GET(request: Request) {
 						refresh_rate,
 					},
 				);
-			}
+			} //else {
+			// 	const layout = device.layout || "single-landscape";
+			// 	const plugins = device.plugins || { name: "calendar", settings: {} };
+			// 	return NextResponse.json(
+			// 		{
+			// 			status: 0,
+			// 			image_url: `${base}/api/render/plugin?mac=${mac}&ts=${Date.now()}&width=${width}&height=${height}&layout=${layout}&plugins=${JSON.stringify(plugins)}`,
+			// 			filename: `${mac}_${Date.now()}.bmp`,
+			// 			refresh_rate,
+			// 		},
+			// 	);
+			// }
 		} else {
 			console.error(`Device not found: ${mac}`);
 			const uniqueId =

@@ -77,8 +77,7 @@ export async function POST(request: Request) {
 			ok: true,
 			device: {
 				id: String(device._id),
-				friendly_id: device.friendly_id,
-				name: device.name,
+				hash: device.hash,
 				mac: device.mac,
 			},
 		});

@@ -10,7 +10,7 @@ import PageLayout from "@/app/components/layouts/PageLayout";
 export default function DevicesClient() {
   const { status } = useSession();
   const router = useRouter();
-  const [devices, setDevices] = useState<Array<{ id: string; name: string; friendly_id: string; hash: string; role: string | null; firmwareVersion: string | null; model: string | null; address: string | null; room: string | null }>>([]);
+  const [devices, setDevices] = useState<Array<{ id: string; hash: string; role: string | null; firmwareVersion: string | null; model: string | null; address: string | null; room: string | null }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +28,7 @@ export default function DevicesClient() {
       setError(null);
       try {
         const res = await fetch("/api/devices", { cache: "no-store" });
-        const data: { devices?: Array<{ id: string; name: string; friendly_id: string; hash: string; role: string | null; firmwareVersion: string | null; model: string | null; address: string | null; room: string | null }> } =
+        const data: { devices?: Array<{ id: string; hash: string; role: string | null; firmwareVersion: string | null; model: string | null; address: string | null; room: string | null }> } =
           await res.json().catch(() => ({}));
         if (!cancelled) {
           setDevices(data.devices ?? []);

@@ -9,7 +9,7 @@ export default function SettingsTabs() {
   const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
 
   const tabs = [
-    { href: `/profile/devices/${encodeURIComponent(id)}`, label: "Плагин" },
+    { href: `/profile/devices/${encodeURIComponent(id)}`, label: "Плагины" },
     { href: `/profile/devices/${encodeURIComponent(id)}/info`, label: "Информация" },
   ];
 

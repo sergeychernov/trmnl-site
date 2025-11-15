@@ -59,12 +59,8 @@ export async function GET(request: Request) {
 	if (!device) {
 		isNew = true;
 		const apiKey = randomBytes(32).toString("hex"); // 64-символьный hex
-		const friendlyId = `DEVICE_${macHex.slice(-6)}`;
 		const now = new Date();
-		const name = `TRMNL ${macHex.slice(-4)}`;
 		const newDoc: DeviceDoc = {
-			friendly_id: friendlyId,
-			name,
 			mac: macHex,
 			hash: hashMacAddress(macHex),
 			api_key: apiKey,
@@ -102,7 +98,6 @@ export async function GET(request: Request) {
 		{
 			status: 200,
 			api_key: result.api_key,
-			friendly_id: result.friendly_id,
 			image_url: null,
 			filename: null,
 			message,

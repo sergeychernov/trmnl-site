@@ -10,8 +10,12 @@ export const dynamic = "force-dynamic";
 type DeviceWithId = DeviceDoc & { _id: ObjectId };
 type DeviceProjection = Pick<
 	DeviceWithId,
-	"_id" | "friendly_id" | "name" | "hash" | "registered_at" | "firmwareVersion" | "model" | "info"
->;
+	"_id" | "hash" | "registered_at" | "info" | "firmwareVersion"
+> & {
+	hardware?: {
+		model?: string;
+	};
+};
 
 export async function GET() {
 	try {
@@ -43,12 +47,10 @@ export async function GET() {
 			.find({ _id: { $in: deviceIds } })
 			.project<DeviceProjection>({
 				_id: 1,
-				friendly_id: 1,
-				name: 1,
 				hash: 1,
 				registered_at: 1,
 				firmwareVersion: 1,
-				model: 1,
+				"hardware.model": 1,
 				"info.user.address": 1,
 				"info.user.room": 1,
 			})
@@ -56,13 +58,11 @@ export async function GET() {
 
 		const result = devices.map((d) => ({
 			id: String(d._id),
-			friendly_id: d.friendly_id,
-			name: d.name,
 			hash: d.hash,
 			registered_at: d.registered_at ?? null,
 			role: rolesByDeviceId.get(String(d._id)) ?? null,
 			firmwareVersion: d.firmwareVersion ?? null,
-			model: d.model ?? null,
+			model: d.hardware?.model ?? null,
 			address: d.info?.user?.address ?? null,
 			room: d.info?.user?.room ?? null,
 		}));

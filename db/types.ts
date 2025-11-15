@@ -1,8 +1,11 @@
 import { ObjectId } from "mongodb";
 
-export type DeviceDoc = {
-	friendly_id: string;
+export type Plugin = {
 	name: string;
+	settings: Record<string, unknown>;
+}
+
+export type DeviceDoc = {
 	mac: string;
 	hash: string;
 	api_key: string;
@@ -20,15 +23,21 @@ export type DeviceDoc = {
 	pin?: string;
 	registered_at?: Date;
 	firmwareVersion?: string;
-	model?: string;
-	info?:{
-		user?:{
+	hardware?: {
+		model: string;
+		width: number;
+		height: number;
+	};
+	info?: {
+		user?: {
 			name?: string;
 			age?: number;
 			address?: string;
 			room?: string;
 		};
 	};
+	plugins?: Plugin[];
+	layout?: string
 };
 
 export type DeviceMemberDoc = {

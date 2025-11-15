@@ -10,7 +10,7 @@ type PageLayoutProps = {
 
 export default function PageLayout({ title, tabs, children }: PageLayoutProps) {
 	return (
-		<div className="mx-auto max-w-lg px-4 sm:px-6 py-10">
+		<div className="mx-auto max-w-lg lg:max-w-none px-4 sm:px-6 py-10">
 			<h1 className="text-2xl font-semibold mb-4">{title}</h1>
 			{tabs}
 			{children}
