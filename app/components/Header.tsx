@@ -5,6 +5,19 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Container from "@mui/material/Container";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Drawer from "@mui/material/Drawer";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemText from "@mui/material/ListItemText";
+import Typography from "@mui/material/Typography";
+import MenuIcon from "@mui/icons-material/Menu";
+import CloseIcon from "@mui/icons-material/Close";
 
 const navItems = [
   { href: "/", label: "Главная" },
@@ -23,92 +36,106 @@ export default function Header() {
   }
 
   return (
-    <header className="border-b sticky top-0 z-50 bg-background/80 backdrop-blur">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="font-semibold flex items-center gap-2">
-              <Image
-                src="/logo.svg"
-                alt="TRMNL"
-                width={28}
-                height={28}
-                priority
-                className="h-7 w-7"
-              />
-              <span className="hidden sm:inline">TRMNL</span>
-            </Link>
-          </div>
+    <AppBar
+      position="sticky"
+      color="default"
+      elevation={0}
+      sx={{
+        backdropFilter: "blur(8px)",
+        backgroundColor: (t) => (t.palette.mode === "light" ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.6)"),
+        borderBottom: "1px solid",
+        borderColor: "divider",
+      }}
+    >
+      <Container maxWidth="lg">
+        <Toolbar disableGutters sx={{ minHeight: 56, display: "flex", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Button
+              component={Link}
+              href="/"
+              color="inherit"
+              sx={{ px: 0, minWidth: "auto", display: "flex", alignItems: "center", gap: 1 }}
+            >
+              <Image src="/logo.svg" alt="TRMNL" width={28} height={28} priority style={{ width: 28, height: 28 }} />
+              <Typography variant="subtitle1" sx={{ display: { xs: "none", sm: "inline" }, fontWeight: 600 }}>
+                TRMNL
+              </Typography>
+            </Button>
+          </Box>
 
-          <nav className="hidden md:flex items-center gap-4 text-sm">
+          <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 1 }}>
             {navItems.map((item) => {
               const href = item.href === "/auth" ? (session ? "/profile" : "/auth") : item.href;
+              const active = isActive(href);
               return (
-                <Link
+                <Button
                   key={item.href}
+                  component={Link}
                   href={href}
-                  className={[
-                    "px-3 py-1.5 rounded-md transition-colors",
-                    isActive(href)
-                      ? "bg-foreground/10"
-                      : "hover:bg-foreground/10",
-                  ].join(" ")}
+                  size="small"
+                  color="inherit"
+                  sx={{
+                    px: 1.5,
+                    py: 0.75,
+                    borderRadius: 1,
+                    bgcolor: active ? "action.selected" : "transparent",
+                    "&:hover": { bgcolor: "action.hover" },
+                    textTransform: "none",
+                  }}
                 >
                   {item.href === "/auth" ? (session ? "Профиль" : "Вход") : item.label}
-                </Link>
+                </Button>
               );
             })}
-          </nav>
+          </Box>
 
-          <button
-            aria-label="Открыть меню"
-            className="md:hidden inline-flex items-center justify-center rounded-md p-2 hover:bg-foreground/10 transition-colors"
-            onClick={() => setOpen((v) => !v)}
-          >
-            <svg
-              className="h-6 w-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <Box sx={{ display: { xs: "flex", md: "none" } }}>
+            <IconButton
+              aria-label="Открыть меню"
+              onClick={() => setOpen((v) => !v)}
+              size="small"
+              color="inherit"
             >
-              {open ? (
-                <path d="M18 6L6 18M6 6l12 12" />
-              ) : (
-                <path d="M3 6h18M3 12h18M3 18h18" />
-              )}
-            </svg>
-          </button>
-        </div>
+              {open ? <CloseIcon /> : <MenuIcon />}
+            </IconButton>
+          </Box>
+        </Toolbar>
+      </Container>
 
-        {open && (
-          <div className="md:hidden pb-3">
-            <nav className="grid gap-1">
-              {navItems.map((item) => {
-                const href = item.href === "/auth" ? (session ? "/profile" : "/auth") : item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={href}
-                    onClick={() => setOpen(false)}
-                    className={[
-                      "px-3 py-2 rounded-md text-sm transition-colors",
-                      isActive(href)
-                        ? "bg-foreground/10"
-                        : "hover:bg-foreground/10",
-                    ].join(" ")}
-                  >
-                    {item.href === "/auth" ? (session ? "Профиль" : "Вход") : item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-        )}
-      </div>
-    </header>
+      <Drawer
+        anchor="top"
+        open={open}
+        onClose={() => setOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        PaperProps={{ sx: { pt: 1, pb: 2, borderBottomLeftRadius: 8, borderBottomRightRadius: 8 } }}
+      >
+        <Container maxWidth="lg">
+          <List sx={{ py: 0 }}>
+            {navItems.map((item) => {
+              const href = item.href === "/auth" ? (session ? "/profile" : "/auth") : item.href;
+              const active = isActive(href);
+              return (
+                <ListItemButton
+                  key={item.href}
+                  component={Link}
+                  href={href}
+                  selected={!!active}
+                  onClick={() => setOpen(false)}
+                  sx={{ borderRadius: 1 }}
+                >
+                  <ListItemText
+                    primary={
+                      item.href === "/auth" ? (session ? "Профиль" : "Вход") : item.label
+                    }
+                    primaryTypographyProps={{ fontSize: 14 }}
+                  />
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </Container>
+      </Drawer>
+    </AppBar>
   );
 }
 
