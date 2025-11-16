@@ -130,8 +130,8 @@ export default function SchoolScheduleRender(props: { settings: ScheduleSettings
 
 	const margin = 16;
 	// Простые относительные размеры без расчёта метрик текста
-	const titleSize = Math.max(24, Math.floor(width * 0.08));
-	const rowSize = Math.max(18, Math.floor(width * 0.035));
+	const titleSize = Math.max(20, Math.floor(width * 0.1));
+	const rowSize = Math.max(14, Math.floor(width * 0.035));
 	console.log("titleSize", titleSize);
 	console.log("rowSize", rowSize);
 

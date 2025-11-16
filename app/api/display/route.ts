@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/mongodb";
-import type { DeviceDoc } from "@/db/types";
+import { findDeviceByMac, getDevicesCollection } from "@/db/devices";
 import { computeSixDigitPinFromMac } from "@/lib/hash";
 import { parseDisplayHeaders } from "@/lib/parsers";
 
@@ -41,14 +40,13 @@ export async function GET(request: Request) {
 	const base = `${protocol}://${host}`;
 
 	try {
-		const db = await getDb();
-		const devicesCol = db.collection<DeviceDoc>("devices");
-		const device = await devicesCol.findOne<DeviceDoc>({ mac });
+		const device = await findDeviceByMac(mac);
 		if (device) {
 			console.log(`Device found: ${device.hash} (${device.hardware?.model || "—"})`);
 			if (!device.registered_at) {
 				if (!device.pin) {
 					const pin = computeSixDigitPinFromMac(mac);
+					const devicesCol = await getDevicesCollection();
 					await devicesCol.updateOne(
 						{ mac },
 						{
@@ -72,18 +70,17 @@ export async function GET(request: Request) {
 						refresh_rate,
 					},
 				);
-			} //else {
-			// 	const layout = device.layout || "single-landscape";
-			// 	const plugins = device.plugins || { name: "calendar", settings: {} };
-			// 	return NextResponse.json(
-			// 		{
-			// 			status: 0,
-			// 			image_url: `${base}/api/render/plugin?mac=${mac}&ts=${Date.now()}&width=${width}&height=${height}&layout=${layout}&plugins=${JSON.stringify(plugins)}`,
-			// 			filename: `${mac}_${Date.now()}.bmp`,
-			// 			refresh_rate,
-			// 		},
-			// 	);
-			// }
+			} else {
+				const { hash } = device;
+				return NextResponse.json(
+					{
+						status: 0,
+						image_url: `${base}/api/render/device?hash=${hash}&ts=${Date.now()}`,
+						filename: `${hash}_${Date.now()}.bmp`,
+						refresh_rate,
+					},
+				);
+			}
 		} else {
 			console.error(`Device not found: ${mac}`);
 			const uniqueId =

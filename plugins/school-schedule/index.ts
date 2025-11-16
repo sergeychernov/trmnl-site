@@ -2,6 +2,8 @@ import type { Plugin } from "../types";
 import React from "react";
 import type { UserSettings, PluginRenderContext } from "@/plugins/types";
 import SchoolScheduleRender from "./Render";
+import SchoolScheduleEditor from "./Editor";
+import type { PluginEditorProps } from "../types";
 
 type WeekSchedule = {
 	mon: string[];
@@ -54,7 +56,7 @@ function validate(value: unknown): value is ScheduleSettings {
 
 const schoolSchedule: Plugin<ScheduleSettings> = {
 	id: "school-schedule",
-	name: "Школьное расписание (1 день)",
+	name: "Школьное расписание",
 	outputSizes: [], // без ограничений по размеру — работает в превью блоков любых размеров
 	defaultSettings: {
 		timeZone: "Europe/Moscow",
@@ -71,10 +73,7 @@ const schoolSchedule: Plugin<ScheduleSettings> = {
 		},
 	},
 	validate,
-	editor: async () =>
-	((await import("./Editor")).default as unknown as import("react").ComponentType<
-		import("../types").PluginEditorProps<ScheduleSettings>
-	>),
+	editor: async () => (SchoolScheduleEditor as unknown as React.ComponentType<PluginEditorProps<ScheduleSettings>>),
 	render({ settings, width, height }: { user?: UserSettings; settings?: ScheduleSettings; context?: PluginRenderContext; width: number; height: number }) {
 		// Мержим с дефолтами, чтобы отсутствующие поля (напр. showTimes) не сбрасывались
 		const d = { ...schoolSchedule.defaultSettings, ...(settings ?? {}) } as ScheduleSettings;

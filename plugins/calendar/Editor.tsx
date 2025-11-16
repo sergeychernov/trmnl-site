@@ -17,7 +17,7 @@ export default function CalendarEditor({ value, onChange }: PluginEditorProps<Ca
 			<label className="grid gap-1">
 				<span className="text-sm font-medium">Ориентация</span>
 				<select
-					value={value.orientation}
+					value={value.orientation ?? "landscape"}
 					onChange={(e) => update({ orientation: e.target.value as CalendarSettings["orientation"] })}
 					className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
 				>
@@ -28,7 +28,7 @@ export default function CalendarEditor({ value, onChange }: PluginEditorProps<Ca
 			<label className="inline-flex items-center gap-2">
 				<input
 					type="checkbox"
-					checked={value.drawBorder}
+					checked={!!value.drawBorder}
 					onChange={(e) => update({ drawBorder: e.target.checked })}
 				/>
 				<span className="text-sm">Рисовать рамку</span>
@@ -36,7 +36,7 @@ export default function CalendarEditor({ value, onChange }: PluginEditorProps<Ca
 			<label className="inline-flex items-center gap-2">
 				<input
 					type="checkbox"
-					checked={value.showMac}
+					checked={!!value.showMac}
 					onChange={(e) => update({ showMac: e.target.checked })}
 				/>
 				<span className="text-sm">Показывать MAC</span>
