@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import ProfileTabs from "../../Tabs";
+import ProfileTabs from "../../ProfileTabs";
 import { DeviceConnectErrorMessages } from "@/app/api/device/connect/errors";
 import PageLayout from "@/app/components/layouts/PageLayout";
 

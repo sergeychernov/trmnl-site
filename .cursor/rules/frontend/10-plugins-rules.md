@@ -66,6 +66,15 @@
 - Кросс‑платформенность: не использовать Node‑специфику в плагинах, если они вызываются в браузере.
   - Если `render` возвращает `ReactElement`, избегайте побочных эффектов и сетевых запросов — OG‑пайплайн должен быть детерминированным.
 
+### UI редактора настроек (Editor.tsx)
+- Приоритетная библиотека UI — MUI (`@mui/material`).
+  - Формы: `TextField`, `Select` (+ `FormControl/InputLabel/MenuItem`), `Switch` (+ `FormControlLabel`), `Checkbox/Radio` по необходимости.
+  - Навигация внутри редактора: `Tabs/Tab` (см. документацию MUI — Tabs).
+  - Layout: `Stack/Box/Grid`, отступы через `sx` и тему.
+  - Валидации — через свойства MUI (`error`, `helperText`) и типы TS; текст ошибок краткий.
+- SSR уже настроен через `AppRouterCacheProvider` — не удалять провайдеры MUI в `app/providers.tsx`.
+- Tailwind допускается точечно (утилитарные классы), но компоненты формы — только MUI.
+
 ### Рендер текста (canvasText)
 - Используем только `@lib/canvasText` для вывода текста в монохромный буфер:
   - Измерение: `measureCanvasText(text, opts)` вернёт `{ width, height }`.

@@ -3,9 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import ProfileTabs from "../Tabs";
+import ProfileTabs from "../ProfileTabs";
 import Link from "next/link";
 import PageLayout from "@/app/components/layouts/PageLayout";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
+import Alert from "@mui/material/Alert";
+import List from "@mui/material/List";
+import Button from "@mui/material/Button";
+import DeviceCard from "@/app/profile/devices/DeviceCard";
 
 export default function DevicesClient() {
   const { status } = useSession();
@@ -46,48 +52,35 @@ export default function DevicesClient() {
   }, [status]);
   return (
     <PageLayout title="Профиль" tabs={<ProfileTabs />}>
-      <div className="rounded-md bg-gray-100 dark:bg-neutral-800 p-4">
-        <div className="text-sm opacity-80">Устройства</div>
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Typography variant="body2" color="text.secondary">Устройства</Typography>
         {loading ? (
-          <div className="opacity-80">Загрузка...</div>
+          <Typography variant="body2" color="text.secondary">Загрузка...</Typography>
         ) : error ? (
-          <div className="text-red-600 text-sm">{error}</div>
+          <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
         ) : devices.length === 0 ? (
-          <div className="opacity-80">У вас пока нет подключённых устройств</div>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            У вас пока нет подключённых устройств
+          </Typography>
         ) : (
-          <ul className="mt-2 space-y-2">
-            {devices.map((d) => (
-              <li
-                key={d.id}
-                className="rounded border px-3 py-2 bg-white dark:bg-neutral-900 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800 transition"
-                onClick={() => router.push(`/profile/devices/${encodeURIComponent(d.hash)}`)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    router.push(`/profile/devices/${encodeURIComponent(d.hash)}`);
-                  }
-                }}
-                title="Открыть настройки устройства"
-              >
-                <div className="font-medium">{d.model || "—"}</div>
-                <div className="text-xs opacity-70">
-                  {d.firmwareVersion ?? "—"} {d.role ? `· ${d.role}` : ""} {d.address ? `· ${d.address}` : ""} {d.room ? `· ${d.room}` : ""}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <List dense sx={{ mt: 1 }}>
+            {devices.map((d) => {
+              return (
+                <DeviceCard key={d.id} device={d} />
+              );
+            })}
+          </List>
         )}
-      </div>
-      <div className="mt-4">
-        <Link
-          href="/profile/devices/connect"
-          className="inline-block w-full rounded-md bg-gray-800 text-white py-2.5 text-center hover:bg-black transition"
-        >
-          Добавить устройство
-        </Link>
-      </div>
+      </Paper>
+      <Button
+        component={Link}
+        href="/profile/devices/connect"
+        variant="contained"
+        fullWidth
+        sx={{ mt: 2 }}
+      >
+        Добавить устройство
+      </Button>
     </PageLayout>
   );
 }

@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
-import ProfileTabs from "./Tabs";
+import ProfileTabs from "./ProfileTabs";
+import Container from "@mui/material/Container";
+import Typography from "@mui/material/Typography";
+import Alert from "@mui/material/Alert";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Button from "@mui/material/Button";
+import Box from "@mui/material/Box";
 
 export default function ProfileClient() {
 	const { data: session, status } = useSession();
@@ -61,58 +68,71 @@ export default function ProfileClient() {
 
 	if (status !== "authenticated") {
 		return (
-			<div className="mx-auto max-w-lg px-4 sm:px-6 py-10">
-				<div className="text-sm opacity-70">Загрузка...</div>
-			</div>
+			<Container maxWidth="sm" sx={{ py: { xs: 4, sm: 6 } }}>
+				<Typography variant="body2" color="text.secondary">
+					Загрузка...
+				</Typography>
+			</Container>
 		);
 	}
 
 	return (
-		<div className="mx-auto max-w-lg px-4 sm:px-6 py-10">
-			<h1 className="text-2xl font-semibold mb-4">Профиль</h1>
+		<Container maxWidth="sm" sx={{ py: { xs: 4, sm: 6 } }}>
+			<Typography variant="h5" component="h1" fontWeight={600} gutterBottom>
+				Профиль
+			</Typography>
 			<ProfileTabs />
 
 			{oauthError ? (
-				<div className="rounded-md border border-red-300 bg-red-50 text-red-800 px-3 py-2 text-sm mb-4">
-					{oauthError}
-				</div>
+				<Box sx={{ mb: 2 }}>
+					<Alert severity="error" variant="outlined">
+						{oauthError}
+					</Alert>
+				</Box>
 			) : null}
 
-			<div className="space-y-4">
-				<div className="rounded-md bg-gray-100 dark:bg-neutral-800 p-4">
-					<div className="text-sm opacity-80">Вы вошли как</div>
-					<div className="font-medium">{session?.user?.name || session?.user?.email}</div>
-				</div>
+			<Stack spacing={2.5}>
+				<Paper variant="outlined" sx={{ p: 2 }}>
+					<Typography variant="body2" color="text.secondary">
+						Вы вошли как
+					</Typography>
+					<Typography variant="subtitle2">
+						{session?.user?.name || session?.user?.email}
+					</Typography>
+				</Paper>
 				{isYandexLinked === false && (
-					<button
+					<Button
 						onClick={() => signIn("yandex", { callbackUrl: "/profile" })}
-						className="w-full rounded-md border py-2.5"
+						variant="outlined"
+						fullWidth
 						disabled={linkLoading}
 					>
 						Привязать Яндекс
-					</button>
+					</Button>
 				)}
 				{isYandexLinked === true && (
-					<button
+					<Button
 						onClick={handleUnlink}
-						className="w-full rounded-md border py-2.5"
+						variant="outlined"
+						fullWidth
 						disabled={linkLoading}
 					>
 						Отвязать Яндекс
-					</button>
+					</Button>
 				)}
-				<button
+				<Button
 					onClick={async () => {
-						const res = await signOut({ redirect: false });
+						await signOut({ redirect: false });
 						// Делаем переход сами, чтобы сохранить текущий хост
 						router.push("/auth");
 					}}
-					className="w-full rounded-md bg-gray-800 text-white py-2.5 hover:bg-black transition"
+					variant="contained"
+					fullWidth
 				>
 					Выйти
-				</button>
-			</div>
-		</div>
+				</Button>
+			</Stack>
+		</Container>
 	);
 }
 

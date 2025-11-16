@@ -1,6 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Container from "@mui/material/Container";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
 
 type PageLayoutProps = {
 	title: string;
@@ -10,11 +13,13 @@ type PageLayoutProps = {
 
 export default function PageLayout({ title, tabs, children }: PageLayoutProps) {
 	return (
-		<div className="mx-auto max-w-lg lg:max-w-none px-4 sm:px-6 py-10">
-			<h1 className="text-2xl font-semibold mb-4">{title}</h1>
+		<Container maxWidth="lg" sx={{ py: { xs: 4, sm: 6, md: 8 } }}>
+			<Typography variant="h5" component="h1" fontWeight={600} gutterBottom>
+				{title}
+			</Typography>
 			{tabs}
-			{children}
-		</div>
+			<Box mt={2}>{children}</Box>
+		</Container>
 	);
 }
 
