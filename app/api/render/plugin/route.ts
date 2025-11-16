@@ -4,6 +4,7 @@ import type { UserSettings } from "@/plugins/types";
 import { getBaseUrl } from "@/lib/parsers";
 import { renderPlugin } from "@/plugins/server";
 import { toMonochromeBmp } from "@lib/bmp";
+import { findDeviceByHash } from "@/db/devices";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
 	const widthNum = Math.trunc(Number(url.searchParams.get("width")));
 	const heightNum = Math.trunc(Number(url.searchParams.get("height")));
 	const indexNum = Math.trunc(Number(url.searchParams.get("index") ?? "1"));
+	const deviceHash = url.searchParams.get("device")?.trim() || null;
 	if (!pluginId || !Number.isFinite(widthNum) || !Number.isFinite(heightNum) || widthNum <= 0 || heightNum <= 0) {
 		return NextResponse.json({ error: "invalid or missing parameters (plugin, width, height[, index])" }, { status: 400 });
 	}
@@ -39,8 +41,23 @@ export async function GET(request: Request) {
 		return NextResponse.json({ error: "plugin not found" }, { status: 404 });
 	}
 	const origin = getBaseUrl(request);
-	const user: UserSettings = { name: "", age: 0 }; // по умолчанию
-	const context = { deviceId: null, baseUrl: origin };
+	let user: UserSettings = { name: "", age: 0 }; // по умолчанию
+	let context = { deviceId: null as string | null, baseUrl: origin };
+	if (deviceHash) {
+		try {
+			const device = await findDeviceByHash(deviceHash);
+			if (device) {
+				const u = device.info?.user;
+				user = {
+					name: String(u?.name ?? ""),
+					age: Number(u?.age ?? 0),
+				};
+				context = { deviceId: device.hash, baseUrl: origin };
+			}
+		} catch {
+			// игнорируем, оставляем дефолтного пользователя
+		}
+	}
 	const image = await renderPlugin(plugin as import("@/plugins").Plugin<Record<string, unknown>>, {
 		user,
 		settings,

@@ -190,7 +190,7 @@ function RenderLayoutControlsAndPreview({ id, device }: { id: string; device: Pu
 						const h = blockSizes[idx]?.height ?? 0;
 						const blk = blocks[idx] ?? { id: defaultPlugin?.id ?? "empty", settings: defaultPlugin?.defaultSettings ?? {} };
 						const settingsParam = encodeURIComponent(JSON.stringify(blk.settings ?? {}));
-						const base = `/api/render/plugin?plugin=${encodeURIComponent(blk.id)}&width=${w}&height=${h}&index=${idx + 1}&settings=${settingsParam}`;
+						const base = `/api/render/plugin?plugin=${encodeURIComponent(blk.id)}&width=${w}&height=${h}&index=${idx + 1}&settings=${settingsParam}&device=${encodeURIComponent(id)}`;
 						const src = previewNonce ? `${base}&t=${previewNonce}` : base;
 						return (
 							<button

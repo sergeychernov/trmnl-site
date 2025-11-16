@@ -3,8 +3,7 @@
 import type { PluginEditorProps } from "../types";
 
 type HelloSettings = {
-	message: string;
-	orientation: "landscape" | "portrait";
+	timeZone: string;
 };
 
 export default function HelloEditor({ value, onChange }: PluginEditorProps<HelloSettings>) {
@@ -12,24 +11,14 @@ export default function HelloEditor({ value, onChange }: PluginEditorProps<Hello
 	return (
 		<div className="grid gap-3">
 			<label className="grid gap-1">
-				<span className="text-sm font-medium">Сообщение</span>
+				<span className="text-sm font-medium">Часовой пояс (IANA)</span>
 				<input
 					type="text"
-					value={value.message ?? ""}
-					onChange={(e) => update({ message: e.target.value })}
+					placeholder="Europe/Moscow"
+					value={value.timeZone ?? ""}
+					onChange={(e) => update({ timeZone: e.target.value })}
 					className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
 				/>
-			</label>
-			<label className="grid gap-1">
-				<span className="text-sm font-medium">Ориентация</span>
-				<select
-					value={value.orientation ?? "landscape"}
-					onChange={(e) => update({ orientation: e.target.value as HelloSettings["orientation"] })}
-					className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
-				>
-					<option value="landscape">Ландшафт</option>
-					<option value="portrait">Портрет</option>
-				</select>
 			</label>
 		</div>
 	);
