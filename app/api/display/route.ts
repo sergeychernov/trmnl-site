@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
 	const url = new URL(request.url);
 	const intervalParam = url.searchParams.get("interval");
-	const refresh_rate = Number.isFinite(Number(intervalParam)) ? Math.max(5, Number(intervalParam)) : 180;
+	const refresh_rate = Number.isFinite(Number(intervalParam)) ? Math.max(60, Number(intervalParam)) : 180;
 	const headers = parseDisplayHeaders(request);
 	console.log("headers", headers);
 	if (!headers) {
