@@ -2,6 +2,19 @@
 
 import type { PluginEditorProps } from "../types";
 import { useMemo, useState } from "react";
+import type { ChangeEvent, SyntheticEvent } from "react";
+import {
+	Box,
+	Button,
+	FormControlLabel,
+	Grid,
+	Stack,
+	Switch,
+	Tab,
+	Tabs,
+	TextField,
+	Typography,
+} from "@mui/material";
 
 type WeekSchedule = {
 	mon: string[];
@@ -101,83 +114,83 @@ export default function SchoolScheduleEditor({ value, onChange }: PluginEditorPr
 	};
 
 	return (
-		<div className="grid gap-3">
-			<div className="flex gap-2 flex-wrap">
-				{dayTabs.map((t) => {
-					const active = tab === t.key;
-					return (
-						<button
-							key={t.key}
-							type="button"
-							onClick={() => setTab(t.key)}
-							className={`text-xs px-2 py-1 border rounded-md ${active ? "bg-black text-white" : "bg-white"}`}
-						>
-							{t.label}
-						</button>
-					);
-				})}
-			</div>
+		<Stack spacing={2}>
+			<Tabs
+				value={tab}
+				onChange={(_: SyntheticEvent, v: (typeof dayTabs)[number]["key"]) => setTab(v)}
+				variant="scrollable"
+				scrollButtons="auto"
+			>
+				{dayTabs.map((t) => (
+					<Tab key={t.key} value={t.key} label={t.label} />
+				))}
+			</Tabs>
 
 			{tab === "general" && (
-				<div className="grid gap-3">
-					<label className="grid gap-1">
-						<span className="text-sm font-medium">Часовой пояс (IANA)</span>
-						<input
-							type="text"
+				<Stack spacing={2}>
+					<Box>
+						<Typography variant="subtitle2">Часовой пояс (IANA)</Typography>
+						<TextField
+							size="small"
+							fullWidth
 							placeholder="Europe/Moscow"
 							value={value.timeZone ?? ""}
-							onChange={(e) => update({ timeZone: e.target.value })}
-							className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
+							onChange={(e: ChangeEvent<HTMLInputElement>) => update({ timeZone: e.target.value })}
 						/>
-					</label>
-					<label className="grid gap-1">
-						<span className="text-sm font-medium">Длительность урока (мин)</span>
-						<input
+					</Box>
+					<Box>
+						<Typography variant="subtitle2">Длительность урока (мин)</Typography>
+						<TextField
+							size="small"
 							type="number"
-							min={1}
+							inputProps={{ min: 1 }}
 							value={Number.isFinite(value.lessonDurationMin as number) ? (value.lessonDurationMin as number) : 0}
-							onChange={(e) => update({ lessonDurationMin: Math.max(1, Number(e.target.value) || 1) })}
-							className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white w-28"
+							onChange={(e: ChangeEvent<HTMLInputElement>) =>
+								update({ lessonDurationMin: Math.max(1, Number(e.target.value) || 1) })
+							}
+							sx={{ width: 160 }}
 						/>
-					</label>
-					<label className="inline-flex items-center gap-2">
-						<input
-							type="checkbox"
-							checked={value.showTimes ?? true}
-							onChange={(e) => update({ showTimes: e.target.checked })}
-						/>
-						<span className="text-sm">Показывать время</span>
-					</label>
-					<div className="grid gap-2">
-						<div className="flex items-center justify-between">
-							<span className="text-sm font-medium">Начало каждого урока</span>
-							<button type="button" onClick={addSlot} className="text-xs px-2 py-1 border rounded-md bg-white">
+					</Box>
+					<FormControlLabel
+						control={
+							<Switch
+								checked={value.showTimes ?? true}
+								onChange={(e: ChangeEvent<HTMLInputElement>) => update({ showTimes: e.target.checked })}
+							/>
+						}
+						label="Показывать время"
+					/>
+					<Stack spacing={1}>
+						<Stack direction="row" alignItems="center" justifyContent="space-between">
+							<Typography variant="subtitle2">Начало каждого урока</Typography>
+							<Button size="small" variant="outlined" onClick={addSlot}>
 								Добавить слот
-							</button>
-						</div>
-						<div className="grid gap-2">
+							</Button>
+						</Stack>
+						<Stack spacing={1}>
 							{lessonStarts.map((t, idx) => (
-								<div key={idx} className="flex items-center gap-2">
-									<input
-										type="text"
+								<Stack key={idx} direction="row" alignItems="center" spacing={1}>
+									<TextField
+										size="small"
 										value={t}
-										onChange={(e) => updateLessonStarts(idx, e.target.value)}
-										className="border border-gray-300 rounded-md px-2 py-1 text-sm outline-none bg-white w-24"
+										onChange={(e: ChangeEvent<HTMLInputElement>) => updateLessonStarts(idx, e.target.value)}
 										placeholder="HH:MM"
+										sx={{ width: 120 }}
 									/>
-									<button
-										type="button"
+									<Button
+										size="small"
+										variant="outlined"
+										color="inherit"
 										onClick={() => removeSlot(idx)}
 										disabled={lessonStarts.length <= 1}
-										className="text-xs px-2 py-1 border rounded-md bg-white disabled:opacity-60"
 									>
 										Удалить
-									</button>
-								</div>
+									</Button>
+								</Stack>
 							))}
-						</div>
-					</div>
-				</div>
+						</Stack>
+					</Stack>
+				</Stack>
 			)}
 
 			{tab !== "general" && (
@@ -188,7 +201,7 @@ export default function SchoolScheduleEditor({ value, onChange }: PluginEditorPr
 					onChangeTitle={updateDayTitle}
 				/>
 			)}
-		</div>
+		</Stack>
 	);
 }
 
@@ -217,23 +230,29 @@ function DayEditor({
 	}, [slotsCount, day, value.schedule, value.lessonStarts]);
 
 	return (
-		<div className="grid gap-2">
-			<div className="text-sm font-medium">{label}: предметы по слотам</div>
-			<div className="grid gap-2">
+		<Stack spacing={1.5}>
+			<Typography variant="subtitle2">{label}: предметы по слотам</Typography>
+			<Stack spacing={1.5}>
 				{rows.map((r) => (
-					<div key={r.idx} className="grid grid-cols-[80px,1fr] gap-2 items-center">
-						<span className="text-xs text-gray-600">{r.time || "—"}</span>
-						<input
-							type="text"
-							value={r.title}
-							onChange={(e) => onChangeTitle(day, r.idx, e.target.value)}
-							className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
-							placeholder="Название предмета (пусто — нет урока)"
-						/>
-					</div>
+					<Grid key={r.idx} container columnSpacing={1.5} alignItems="center">
+						<Grid item xs="auto">
+							<Typography variant="caption" color="text.secondary" sx={{ width: 60, display: "inline-block" }}>
+								{r.time || "—"}
+							</Typography>
+						</Grid>
+						<Grid item xs>
+							<TextField
+								size="small"
+								fullWidth
+								value={r.title}
+								onChange={(e: ChangeEvent<HTMLInputElement>) => onChangeTitle(day, r.idx, e.target.value)}
+								placeholder="Название предмета (пусто — нет урока)"
+							/>
+						</Grid>
+					</Grid>
 				))}
-			</div>
-		</div>
+			</Stack>
+		</Stack>
 	);
 }
 

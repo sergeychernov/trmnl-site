@@ -1,6 +1,7 @@
 "use client";
 
 import type { PluginEditorProps } from "../types";
+import { Stack, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 
 type SymbolsSettings = {
 	orientation: "landscape" | "portrait";
@@ -9,19 +10,24 @@ type SymbolsSettings = {
 export default function SupportedSymbolsEditor({ value, onChange }: PluginEditorProps<SymbolsSettings>) {
 	const update = (patch: Partial<SymbolsSettings>) => onChange({ ...value, ...patch });
 	return (
-		<div className="grid gap-3">
-			<label className="grid gap-1">
-				<span className="text-sm font-medium">Ориентация</span>
-				<select
+		<Stack spacing={2}>
+			<FormControl size="small">
+				<InputLabel id="symbols-orientation-label">Ориентация</InputLabel>
+				<Select
+					labelId="symbols-orientation-label"
+					label="Ориентация"
 					value={value.orientation}
-					onChange={(e) => update({ orientation: e.target.value as SymbolsSettings["orientation"] })}
-					className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
+					onChange={(e: unknown) =>
+						update({
+							orientation: ((e as { target: { value: string } }).target.value as SymbolsSettings["orientation"]),
+						})
+					}
 				>
-					<option value="landscape">Ландшафт</option>
-					<option value="portrait">Портрет</option>
-				</select>
-			</label>
-		</div>
+					<MenuItem value="landscape">Ландшафт</MenuItem>
+					<MenuItem value="portrait">Портрет</MenuItem>
+				</Select>
+			</FormControl>
+		</Stack>
 	);
 }
 

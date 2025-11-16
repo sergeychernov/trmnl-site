@@ -1,6 +1,8 @@
 "use client";
 
 import type { PluginEditorProps } from "../types";
+import { Stack, FormControl, InputLabel, Select, MenuItem, TextField } from "@mui/material";
+import type { ChangeEvent } from "react";
 
 type RegistrationSettings = {
 	orientation: "landscape" | "portrait";
@@ -11,31 +13,34 @@ export default function RegistrationEditor({ value, onChange }: PluginEditorProp
 	const update = (patch: Partial<RegistrationSettings>) => onChange({ ...value, ...patch });
 	const margin = typeof value.marginModules === "number" ? value.marginModules : 4;
 	return (
-		<div className="grid gap-3">
-			<label className="grid gap-1">
-				<span className="text-sm font-medium">Ориентация</span>
-				<select
+		<Stack spacing={2}>
+			<FormControl size="small">
+				<InputLabel id="registration-orientation-label">Ориентация</InputLabel>
+				<Select
+					labelId="registration-orientation-label"
+					label="Ориентация"
 					value={value.orientation}
-					onChange={(e) => update({ orientation: e.target.value as RegistrationSettings["orientation"] })}
-					className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
+					onChange={(e: unknown) =>
+						update({
+							orientation: ((e as { target: { value: string } }).target.value as RegistrationSettings["orientation"]),
+						})
+					}
 				>
-					<option value="landscape">Ландшафт</option>
-					<option value="portrait">Портрет</option>
-				</select>
-			</label>
-			<label className="grid gap-1">
-				<span className="text-sm font-medium">Отступ (модули QR)</span>
-				<input
-					type="number"
-					min={0}
-					max={64}
-					step={1}
-					value={margin}
-					onChange={(e) => update({ marginModules: Math.max(0, Math.min(64, Number(e.target.value) || 0)) })}
-					className="border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none bg-white"
-				/>
-			</label>
-		</div>
+					<MenuItem value="landscape">Ландшафт</MenuItem>
+					<MenuItem value="portrait">Портрет</MenuItem>
+				</Select>
+			</FormControl>
+			<TextField
+				size="small"
+				type="number"
+				label="Отступ (модули QR)"
+				inputProps={{ min: 0, max: 64, step: 1 }}
+				value={margin}
+				onChange={(e: ChangeEvent<HTMLInputElement>) =>
+					update({ marginModules: Math.max(0, Math.min(64, Number(e.target.value) || 0)) })
+				}
+			/>
+		</Stack>
 	);
 }
 
