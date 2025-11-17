@@ -11,13 +11,25 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import CircularProgress from "@mui/material/CircularProgress";
 
 export default function ProfileClient() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [isYandexLinked, setIsYandexLinked] = useState<boolean | null>(null);
+	const [isTelegramLinked, setIsTelegramLinked] = useState<boolean | null>(null);
 	const [linkLoading, setLinkLoading] = useState(false);
+	const [telegramModal, setTelegramModal] = useState(false);
+	const [telegramLinkData, setTelegramLinkData] = useState<{
+		linkCode: string;
+		botUrl: string;
+		expiresAt: string;
+	} | null>(null);
 
 	const oauthError = useMemo(() => {
 		const err = searchParams?.get("error");
@@ -39,10 +51,18 @@ export default function ProfileClient() {
 		async function loadLinked() {
 			if (status !== "authenticated") return;
 			try {
-				const res = await fetch("/api/auth/linked/yandex", { cache: "no-store" });
-				if (!aborted && res.ok) {
-					const data = await res.json();
+				// Проверяем Yandex
+				const yandexRes = await fetch("/api/auth/linked/yandex", { cache: "no-store" });
+				if (!aborted && yandexRes.ok) {
+					const data = await yandexRes.json();
 					setIsYandexLinked(Boolean(data?.linked));
+				}
+
+				// Проверяем Telegram
+				const telegramRes = await fetch("/api/auth/linked/telegram", { cache: "no-store" });
+				if (!aborted && telegramRes.ok) {
+					const data = await telegramRes.json();
+					setIsTelegramLinked(Boolean(data?.linked));
 				}
 			} catch {
 				// ignore
@@ -54,13 +74,56 @@ export default function ProfileClient() {
 		};
 	}, [status]);
 
-	async function handleUnlink() {
+	async function handleUnlink(provider: "yandex" | "telegram") {
 		setLinkLoading(true);
 		try {
-			const res = await fetch("/api/auth/unlink/yandex", { method: "POST" });
+			const res = await fetch(`/api/auth/unlink/${provider}`, { method: "POST" });
 			if (res.ok) {
-				setIsYandexLinked(false);
+				if (provider === "yandex") {
+					setIsYandexLinked(false);
+				} else {
+					setIsTelegramLinked(false);
+				}
+			} else {
+				console.error(`Failed to unlink ${provider}`);
 			}
+		} catch (err) {
+			console.error(`Error unlinking ${provider}:`, err);
+		} finally {
+			setLinkLoading(false);
+		}
+	}
+
+	async function handleTelegramLink() {
+		setLinkLoading(true);
+		try {
+			const res = await fetch("/api/auth/telegram/link", { method: "POST" });
+			if (res.ok) {
+				const data = await res.json();
+				setTelegramLinkData(data);
+				setTelegramModal(true);
+
+				// Запускаем проверку статуса привязки каждые 5 секунд
+				const checkInterval = setInterval(async () => {
+					const statusRes = await fetch("/api/auth/linked/telegram", { cache: "no-store" });
+					if (statusRes.ok) {
+						const statusData = await statusRes.json();
+						if (statusData.linked) {
+							setIsTelegramLinked(true);
+							setTelegramModal(false);
+							setTelegramLinkData(null);
+							clearInterval(checkInterval);
+						}
+					}
+				}, 5000);
+
+				// Очищаем интервал через 2 минуты (время жизни кода)
+				setTimeout(() => clearInterval(checkInterval), 2 * 60 * 1000);
+			} else {
+				console.error("Failed to generate Telegram link code");
+			}
+		} catch (err) {
+			console.error("Error linking Telegram:", err);
 		} finally {
 			setLinkLoading(false);
 		}
@@ -112,12 +175,32 @@ export default function ProfileClient() {
 				)}
 				{isYandexLinked === true && (
 					<Button
-						onClick={handleUnlink}
+						onClick={() => handleUnlink("yandex")}
 						variant="outlined"
 						fullWidth
 						disabled={linkLoading}
 					>
 						Отвязать Яндекс
+					</Button>
+				)}
+				{isTelegramLinked === false && (
+					<Button
+						onClick={handleTelegramLink}
+						variant="outlined"
+						fullWidth
+						disabled={linkLoading}
+					>
+						Привязать Telegram
+					</Button>
+				)}
+				{isTelegramLinked === true && (
+					<Button
+						onClick={() => handleUnlink("telegram")}
+						variant="outlined"
+						fullWidth
+						disabled={linkLoading}
+					>
+						Отвязать Telegram
 					</Button>
 				)}
 				<Button
@@ -132,6 +215,64 @@ export default function ProfileClient() {
 					Выйти
 				</Button>
 			</Stack>
+
+			{/* Модальное окно для привязки Telegram */}
+			<Dialog
+				open={telegramModal}
+				onClose={() => setTelegramModal(false)}
+				maxWidth="xs"
+				fullWidth
+			>
+				<DialogTitle>Привязка Telegram</DialogTitle>
+				<DialogContent>
+					<Stack spacing={3} sx={{ pt: 2, textAlign: "center" }}>
+						{telegramLinkData && (
+							<>
+								<Typography variant="body2" color="text.secondary">
+									Отсканируйте QR-код или используйте ссылку ниже:
+								</Typography>
+
+								{/* QR Code */}
+								<Box sx={{ mx: "auto", p: 2, bgcolor: "white", borderRadius: 1 }}>
+									{/* eslint-disable-next-line @next/next/no-img-element */}
+									<img
+										src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(telegramLinkData.botUrl)}`}
+										alt="QR Code"
+										width={200}
+										height={200}
+									/>
+								</Box>
+
+								{/* Link */}
+								<Box
+									component="a"
+									href={telegramLinkData.botUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+									sx={{
+										color: "primary.main",
+										textDecoration: "none",
+										"&:hover": { textDecoration: "underline" }
+									}}
+								>
+									{telegramLinkData.botUrl}
+								</Box>
+
+								<Typography variant="caption" color="text.secondary">
+									Код действителен в течение 2 минут
+								</Typography>
+
+								{linkLoading && (
+									<CircularProgress size={24} sx={{ mx: "auto" }} />
+								)}
+							</>
+						)}
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setTelegramModal(false)}>Закрыть</Button>
+				</DialogActions>
+			</Dialog>
 		</Container>
 	);
 }
