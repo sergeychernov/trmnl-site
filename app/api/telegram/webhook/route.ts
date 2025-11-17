@@ -9,7 +9,7 @@ const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "");
 // Обрабатываем команду /start
 bot.command("start", async (ctx) => {
 	const linkCode = ctx.match;
-	
+
 	if (!linkCode || !/^\d{8}$/.test(linkCode)) {
 		await ctx.reply(
 			"Привет! \u0414ля привязки аккаунта нужно использовать ссылку с кодом привязки из настроек профиля."
