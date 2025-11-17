@@ -1,0 +1,68 @@
+---
+alwaysApply: false
+---
+
+## Правила Cursor — доступ/авторизация (frontend)
+
+### Цель
+- Все страницы под `/profile/*` должны быть доступны только авторизованным пользователям.
+- После входа пользователь возвращается на исходно запрошенный URL (включая вложенные пути и query).
+
+### Реализация (Next.js 15 + NextAuth v5)
+- Не использовать Edge middleware для защиты `/profile/*` — это приводит к ошибкам Edge Runtime из‑за зависимостей `mongodb/crypto`.
+- Централизованный способ: клиентский гард в layout профиля.
+  - В `app/profile/layout.tsx` оборачиваем страницы в `RequireAuthClient` (клиентский компонент).
+  - В `RequireAuthClient` используем `useSession()` для проверки статуса, и формируем `callbackUrl` из `usePathname()` + `useSearchParams()`.
+  - При `unauthenticated` делаем `router.replace("/auth?callbackUrl=" + encodeURIComponent(originalUrl))`.
+  - При `loading`/не `authenticated` показываем лёгкий плейсхолдер «Загрузка…».
+
+Пример (сокращённо):
+
+```tsx
+// app/profile/layout.tsx
+import RequireAuthClient from "./RequireAuthClient";
+export default function ProfileLayout({ children }: { children: React.ReactNode }) {
+  return <RequireAuthClient>{children}</RequireAuthClient>;
+}
+```
+
+```tsx
+// app/profile/RequireAuthClient.tsx
+"use client";
+import { useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+
+export default function RequireAuthClient({ children }: { children: React.ReactNode }) {
+  const { status } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      const query = searchParams?.toString() || "";
+      const original = `${pathname}${query ? `?${query}` : ""}`;
+      router.replace(`/auth?callbackUrl=${encodeURIComponent(original)}`);
+    }
+  }, [status, pathname, searchParams, router]);
+
+  if (status !== "authenticated") {
+    return <div className="mx-auto max-w-lg px-4 sm:px-6 py-10 text-sm opacity-70">Загрузка...</div>;
+  }
+  return <>{children}</>;
+}
+```
+
+### Правила
+- Не дублировать проверки авторизации в страницах под `/profile/*` — используем общий гард layout.
+- Не использовать `next-auth/middleware` с v5 (деPRECATED) и не импортировать `@/auth` в Edge middleware.
+- Если на отдельных страницах требуется серверная защита (редкий случай), обязателен корректный `callbackUrl` (включая путь и query), а также объяснение в PR, почему нельзя использовать общий гард.
+- Страница входа — `/auth` (настроено в NextAuth). После успешного входа редирект на `callbackUrl`.
+
+### Тестирование
+- Непосредственно открыть вложенную страницу, например: `/profile/devices/<id>?tab=info`.
+- Должен произойти редирект на `/auth?callbackUrl=%2Fprofile%2Fdevices%2F<id>%3Ftab%3Dinfo`.
+- После входа — возврат на исходный URL.
+
+
