@@ -1,8 +1,6 @@
 import React from "react";
-import { SmileyIcon, SmileyWinkIcon, SmileyStickerIcon, HandHeartIcon, HeartIcon, SmileyMeltingIcon, SmileyXEyesIcon, SunDimIcon, SunIcon } from "@phosphor-icons/react/dist/ssr";
-import { renderSvgAsImgOnServer } from "@/lib/reactSvg";
+import { HELLO_ICON_IMAGES, type HelloIconName } from "./icon-images";
 import type { HelloSettings } from "./index";
-// Для OG‑рендера надёжнее использовать data:URL SVG вместо вложенного <svg>
 
 function getHourInTimeZone(timeZone: string): number {
 	const fmt = new Intl.DateTimeFormat("en-GB", {
@@ -21,6 +19,8 @@ function greetingByHour(hour: number): string {
 	if (hour >= 17 && hour < 23) return "Добрый вечер";
 	return "Доброй ночи";
 }
+
+const ICON_NAMES = Object.keys(HELLO_ICON_IMAGES) as HelloIconName[];
 
 export default function HelloRender(props: { settings: HelloSettings; userName?: string; width: number; height: number }) {
 	const { settings, userName, width, height } = props;
@@ -43,19 +43,9 @@ export default function HelloRender(props: { settings: HelloSettings; userName?:
 		minute: "2-digit",
 	}).format(new Date());
 
-	const faces = [
-		renderSvgAsImgOnServer(<SmileyIcon key="f0" size={iconSize} weight="fill" color="black" />, iconSize, iconSize),
-		renderSvgAsImgOnServer(<SmileyWinkIcon key="f1" size={iconSize} weight="fill" color="black" />, iconSize, iconSize),
-		renderSvgAsImgOnServer(<HandHeartIcon key="f2" size={iconSize} weight="fill" color="black" />, iconSize, iconSize),
-		renderSvgAsImgOnServer(<HeartIcon key="f2" size={iconSize} weight="fill" color="black" />, iconSize, iconSize),
-		renderSvgAsImgOnServer(<SmileyMeltingIcon key="f2" size={iconSize} weight="fill" color="black" />, iconSize, iconSize),
-		renderSvgAsImgOnServer(<SmileyXEyesIcon key="f2" size={iconSize} weight="fill" color="black" />, iconSize, iconSize),
-		renderSvgAsImgOnServer(<SunIcon key="f2" size={iconSize} weight="fill" color="black" />, iconSize, iconSize),
-		renderSvgAsImgOnServer(<SunDimIcon key="f2" size={iconSize} weight="fill" color="black" />, iconSize, iconSize),
-	];
-	const i = (Math.floor(hour * Math.random() * faces.length)) % faces.length;
-	console.log(i);
-	const face = faces[i];
+	const i = (Math.floor(hour * Math.random() * ICON_NAMES.length)) % ICON_NAMES.length;
+	const iconName = ICON_NAMES[i];
+	const faceSrc = HELLO_ICON_IMAGES[iconName];
 
 	return (
 		<div
@@ -97,7 +87,15 @@ export default function HelloRender(props: { settings: HelloSettings; userName?:
 						opacity: 1,
 					}}
 				>
-					{face}
+					{/* eslint-disable-next-line @next/next/no-img-element */}
+					<img
+						key={iconName}
+						src={faceSrc}
+						alt=""
+						width={iconSize}
+						height={iconSize}
+						style={{ display: "block" }}
+					/>
 				</div>
 			)}
 			<div

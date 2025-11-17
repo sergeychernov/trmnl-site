@@ -24,8 +24,6 @@ const hello: Plugin<HelloSettings> = {
 	render({ user, settings, width, height }: { user?: UserSettings; settings?: HelloSettings; context?: PluginRenderContext; width: number; height: number }) {
 		const d = { ...hello.defaultSettings, ...(settings ?? {}) } as HelloSettings;
 		const userName = (user?.name ?? "").trim();
-		console.log("user", user);
-
 		return React.createElement(HelloRender, { settings: d, userName, width, height });
 	},
 };
