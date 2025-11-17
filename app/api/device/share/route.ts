@@ -70,12 +70,10 @@ export async function POST(request: Request) {
 		await membersCol.updateOne(
 			{ userId: targetUser._id, deviceId: device._id },
 			{
-				$set: { status: "active", updatedAt: now },
+				$set: { status: "active", updatedAt: now, role },
 				$setOnInsert: {
 					userId: targetUser._id,
 					deviceId: device._id,
-					role,
-					status: "active",
 					createdAt: now,
 					addedBy: currentUserObjectId,
 				},
