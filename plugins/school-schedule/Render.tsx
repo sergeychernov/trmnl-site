@@ -128,12 +128,11 @@ export default function SchoolScheduleRender(props: { settings: ScheduleSettings
 		}
 	}
 
-	const margin = 16;
+	const margin = 8;
 	// Простые относительные размеры без расчёта метрик текста
-	const titleSize = Math.max(20, Math.floor(width * 0.1));
-	const rowSize = Math.max(14, Math.floor(width * 0.035));
-	console.log("titleSize", titleSize);
-	console.log("rowSize", rowSize);
+	const titleSize = Math.max(20, Math.floor(width * 0.12));
+	const rowSize = Math.max(18, Math.floor(width * 0.08));
+
 
 	return <SchoolScheduleView lines={lines} titleSize={titleSize} rowSize={rowSize} margin={margin} />;
 }

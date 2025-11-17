@@ -43,7 +43,7 @@ export default function SchoolScheduleView({ lines, titleSize, rowSize, margin }
 						fontWeight: 400,
 						fontSize: `${rowSize}px`,
 						textAlign: "left",
-						marginTop: idx === 0 ? "0px" : "8px",
+						marginTop: idx === 0 ? `${Math.floor(rowSize/2)}px` : `${Math.floor(rowSize*0.8)}px`,
 					}}
 				>
 					{text}
