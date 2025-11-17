@@ -1,7 +1,7 @@
 ---
+globs: app/api/**
 alwaysApply: false
 ---
-
 ## Правила Cursor — backend/server
 
 ### Область

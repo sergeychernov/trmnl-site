@@ -1,7 +1,7 @@
 ---
+globs: db/**
 alwaysApply: false
 ---
-
 ## Правила Cursor — база данных (MongoDB Atlas)
 
 ### Переменные окружения

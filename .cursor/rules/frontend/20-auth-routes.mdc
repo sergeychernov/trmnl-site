@@ -1,7 +1,7 @@
 ---
+globs: app/profile/**
 alwaysApply: false
 ---
-
 ## Правила Cursor — доступ/авторизация (frontend)
 
 ### Цель

@@ -62,6 +62,8 @@ function RenderLayoutControlsAndPreview({ id, device }: { id: string; device: Pu
 	const [blocks, setBlocks] = useState<Array<{ id: string; settings: Record<string, unknown> }>>(
 		() => Array.from({ length: childCount }, () => ({ id: defaultPlugin?.id ?? "empty", settings: defaultPlugin?.defaultSettings ?? {} })),
 	);
+	// Ключ для хранения последнего выбранного блока по устройству
+	const storageKey = useMemo(() => `trmnl:lastBlock:${id}`, [id]);
 	// Загрузка сохранённых плагинов устройства
 	useEffect(() => {
 		let cancelled = false;
@@ -73,7 +75,13 @@ function RenderLayoutControlsAndPreview({ id, device }: { id: string; device: Pu
 				const saved = Array.isArray(data?.plugins) ? data!.plugins : null;
 				if (cancelled || !saved) return;
 				setBlocks(saved.map((p) => ({ id: p.name, settings: p.settings ?? {} })));
-				setSelectedBlock(0);
+				// Если в localStorage нет сохранённого индекса — открыть первый блок
+				try {
+					const raw = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
+					if (raw == null) setSelectedBlock(0);
+				} catch {
+					setSelectedBlock(0);
+				}
 			} catch {
 				// ignore
 			}
@@ -82,7 +90,25 @@ function RenderLayoutControlsAndPreview({ id, device }: { id: string; device: Pu
 		return () => {
 			cancelled = true;
 		};
-	}, [id]);
+	}, [id, storageKey]);
+	// Восстановление выбранного блока из localStorage (после того как известна длина)
+	useEffect(() => {
+		try {
+			const raw = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
+			if (raw != null) {
+				const idx = Number.parseInt(raw, 10);
+				if (Number.isFinite(idx) && idx >= 0) {
+					const clamped = Math.max(0, Math.min(idx, Math.max(0, childCount - 1)));
+					if (clamped !== selectedBlock) {
+						setSelectedBlock(clamped);
+					}
+				}
+			}
+		} catch {
+			// ignore
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [storageKey, childCount]);
 	// Подгоняем длину blocks под текущее количество блоков
 	useEffect(() => {
 		setBlocks((prev) => {
@@ -100,6 +126,17 @@ function RenderLayoutControlsAndPreview({ id, device }: { id: string; device: Pu
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [childCount]);
+	// Сохранение выбранного блока в localStorage
+	useEffect(() => {
+		try {
+			if (typeof window !== "undefined") {
+				const safeIndex = Math.max(0, Math.min(selectedBlock, Math.max(0, childCount - 1)));
+				localStorage.setItem(storageKey, String(safeIndex));
+			}
+		} catch {
+			// ignore
+		}
+	}, [selectedBlock, childCount, storageKey]);
 	// Динамически подгружаем редактор выбранного плагина
 	const [EditorComp, setEditorComp] = useState<null | React.ComponentType<{ value: unknown; onChange: (next: unknown) => void }>>(null);
 	useEffect(() => {

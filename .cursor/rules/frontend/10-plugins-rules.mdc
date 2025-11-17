@@ -1,7 +1,7 @@
 ---
+globs: plugins/**
 alwaysApply: false
 ---
-
 ## Правила Cursor — плагины отображения
 
 ### Цель

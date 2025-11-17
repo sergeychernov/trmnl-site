@@ -1,7 +1,6 @@
 ---
-alwaysApply: false
+alwaysApply: true
 ---
-
 ## Правила Cursor — frontend
 
 ### Область
