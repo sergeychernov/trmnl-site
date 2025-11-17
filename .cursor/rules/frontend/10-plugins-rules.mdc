@@ -97,4 +97,10 @@ alwaysApply: false
   - использовать старые утилиты bitmap‑шрифтов или собственные битовые маски глифов,
   - напрямую писать текст в буфер, минуя `canvasText`.
 
+### Работа с SVG/иконками
+- OG‑пайплайн Vercel/`next/og` ненадёжно рендерит `<svg>` и `<img src="data:image/svg+xml">`. Чтобы не терять иконки, конвертируйте их в растровый формат заранее.
+- Для Phosphor‑иконок используйте `scripts/gen-hello-icons.mjs` — он собирает PNG в `plugins/hello/icon-images.ts` (base64‑данные в `HELLO_ICON_IMAGES`).
+- В рендерах подключайте эти данные и вставляйте обычный `<img src={...} width={...} height={...} />` (c локальным `eslint-disable-next-line @next/next/no-img-element` при необходимости).
+- При добавлении новых иконок расширяйте список в скрипте, запускайте `node scripts/gen-hello-icons.mjs` и коммитьте обновлённый `icon-images.ts`.
+
 
