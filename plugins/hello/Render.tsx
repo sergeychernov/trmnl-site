@@ -31,6 +31,15 @@ export default function HelloRender(props: { settings: HelloSettings; userName?:
 	const subSize = Math.max(14, Math.floor(width * 0.045));
 	const isElongated = width >= height * 1.5 || height >= width * 1.5;
 	const iconSize = Math.max(24, Math.floor(Math.min(width, height) * 0.28));
+	const footerSize = Math.max(10, Math.floor(Math.min(width, height) * 0.03));
+	const updatedAt = new Intl.DateTimeFormat("ru-RU", {
+		timeZone: settings.timeZone,
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	}).format(new Date());
 
 	function BoxSmile({ size, variant }: { size: number; variant: "happy" | "wink" | "grin" }) {
 		const eyeSize = Math.max(4, Math.floor(size * 0.12));
@@ -119,6 +128,7 @@ export default function HelloRender(props: { settings: HelloSettings; userName?:
 				flexDirection: "column",
 				alignItems: "center",
 				justifyContent: "center",
+				position: "relative",
 				color: "black",
 				background: "white",
 				fontFamily: "Noto Sans, sans-serif",
@@ -128,6 +138,7 @@ export default function HelloRender(props: { settings: HelloSettings; userName?:
 		>
 			<div
 				style={{
+					display: "flex",
 					fontWeight: 700,
 					fontSize: titleSize,
 					lineHeight: 1.1,
@@ -152,6 +163,20 @@ export default function HelloRender(props: { settings: HelloSettings; userName?:
 					{face}
 				</div>
 			)}
+			<div
+				style={{
+					display: "flex",
+					position: "absolute",
+					bottom: 8,
+					right: 12,
+					fontSize: footerSize,
+					lineHeight: 1,
+					fontWeight: 400,
+					color: "black",
+				}}
+			>
+				{updatedAt}
+			</div>
 		</div>
 	);
 }
