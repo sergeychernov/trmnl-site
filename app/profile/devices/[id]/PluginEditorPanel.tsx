@@ -19,6 +19,15 @@ export default function PluginEditorPanel({
 	plugins,
 	EditorComp,
 }: PluginEditorPanelProps) {
+	const currentBlock = blocks[selectedBlock];
+	const currentPlugin = currentBlock ? getPlugin(currentBlock.id) : null;
+	const valueForEditor =
+		currentPlugin
+			? {
+					...(currentPlugin.defaultSettings as Record<string, unknown>),
+					...(currentBlock?.settings ?? {}),
+			  }
+			: (currentBlock?.settings ?? {});
 	return (
 		<div className="mt-3">
 			<label className="block text-sm font-medium mb-1">Блок #{selectedBlock + 1}</label>
@@ -44,7 +53,7 @@ export default function PluginEditorPanel({
 			<div className="mt-3 border rounded-md p-3">
 				{EditorComp ? (
 					<EditorComp
-						value={(blocks[selectedBlock]?.settings as unknown) ?? {}}
+						value={valueForEditor as unknown}
 						onChange={(next: unknown) => {
 							setBlocks((prev) => {
 								const arr = [...prev];

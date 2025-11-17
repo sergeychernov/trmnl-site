@@ -22,7 +22,11 @@ function createMonochromeBuffer(width: number, height: number): Uint8Array {
 const symbols: Plugin<SymbolsSettings> = {
 	id: "supported-symbols",
 	name: "Поддерживаемые символы",
-	outputSizes: [{ width: 800, height: 480 }],
+	outputSizes: [
+		{ width: 800, height: 480 }, // 8/8
+		{ width: 300, height: 480 }, // 3/8 от 800
+		{ width: 200, height: 480 }, // 2/8 от 800
+	],
 	defaultSettings: { orientation: "landscape" },
 	validate,
 	editor: async () => (await import("./Editor")).default,

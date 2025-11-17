@@ -8,7 +8,11 @@ type SymbolsSettings = {
 };
 
 export default function SupportedSymbolsEditor({ value, onChange }: PluginEditorProps<SymbolsSettings>) {
-	const update = (patch: Partial<SymbolsSettings>) => onChange({ ...value, ...patch });
+	const current: SymbolsSettings =
+		value && (value as Partial<SymbolsSettings>).orientation && ((value as Partial<SymbolsSettings>).orientation === "landscape" || (value as Partial<SymbolsSettings>).orientation === "portrait")
+			? (value as SymbolsSettings)
+			: { orientation: "landscape" };
+	const update = (patch: Partial<SymbolsSettings>) => onChange({ ...current, ...patch });
 	return (
 		<Stack spacing={2}>
 			<FormControl size="small">
@@ -16,7 +20,7 @@ export default function SupportedSymbolsEditor({ value, onChange }: PluginEditor
 				<Select
 					labelId="symbols-orientation-label"
 					label="Ориентация"
-					value={value.orientation}
+					value={current.orientation}
 					onChange={(e: unknown) =>
 						update({
 							orientation: ((e as { target: { value: string } }).target.value as SymbolsSettings["orientation"]),
