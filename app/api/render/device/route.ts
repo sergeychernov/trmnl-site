@@ -7,6 +7,8 @@ import { getPlugin } from "@/plugins";
 import { renderPlugin } from "@/plugins/server";
 import type { MonochromeImage } from "@/plugins/types";
 import { getDb } from "@/lib/mongodb";
+import type { DeviceMemberDoc, AccountDoc } from "@/db/types";
+import type { DeviceWithId } from "@/db/devices";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,12 +97,12 @@ export async function GET(request: Request) {
 		let telegramId: string | null = null;
 		try {
 			const db = await getDb();
-			const deviceMembers = db.collection<import("@/db/types").DeviceMemberDoc>("device_members");
-			const accounts = db.collection<import("@/db/types").AccountDoc>("accounts");
+			const deviceMembers = db.collection<DeviceMemberDoc>("device_members");
+			const accounts = db.collection<AccountDoc>("accounts");
 
 			// Находим владельца устройства
 			// device приходит из findDeviceByHash и имеет _id
-			const deviceWithId = device as import("@/db/devices").DeviceWithId;
+			const deviceWithId = device as DeviceWithId;
 			const owner = await deviceMembers.findOne({
 				deviceId: deviceWithId._id,
 				role: "owner",
@@ -122,7 +124,7 @@ export async function GET(request: Request) {
 			// Игнорируем ошибки получения telegramId
 		}
 
-		const image = await renderPlugin(plugin as unknown as import("@/plugins").Plugin<Record<string, unknown>>, {
+		const image = await renderPlugin(plugin, {
 			user: device.info?.user ? { name: device.info.user.name ?? "", age: Number(device.info.user.age ?? 0) } : undefined,
 			settings: (descriptor.settings ?? {}) as Record<string, unknown>,
 			context: { deviceId: device.hash, baseUrl, telegramId },
