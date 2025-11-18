@@ -7,7 +7,6 @@ import type { TelegramSettings } from "./index";
 // Плагин Telegram: показывает последнее сообщение, которое внешний код передал через `data`,
 // и аккуратно обрабатывает случай, когда Telegram ещё не привязан или сообщений нет.
 export default function Render({
-  user,
   data,
   context,
   width,
@@ -71,54 +70,95 @@ export default function Render({
           textAlign: "left",
           fontSize: 18,
           lineHeight: 1.4,
+          gap: 2,
         }}
       >
         {message ? (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              // Один параграф = одна строка; не разбиваем контент по вертикали
-              p: ({ children }: { children?: React.ReactNode }) => (
-                <span style={{ whiteSpace: "pre-wrap" }}>{children}</span>
-              ),
-              strong: ({ children }: { children?: React.ReactNode }) => (
-                <span style={{ fontWeight: "bold" }}>{children}</span>
-              ),
-              em: ({ children }: { children?: React.ReactNode }) => (
-                <span style={{ fontStyle: "italic" }}>{children}</span>
-              ),
-              u: ({ children }: { children?: React.ReactNode }) => (
-                <span style={{ textDecoration: "underline" }}>{children}</span>
-              ),
-              del: ({ children }: { children?: React.ReactNode }) => (
-                <span style={{ textDecoration: "line-through" }}>{children}</span>
-              ),
-              code: ({ children }: { children?: React.ReactNode }) => (
-                <span
+          // Разбиваем исходный текст по переводам строк Telegram,
+          // и каждую строку рендерим отдельно.
+          message.split(/\r?\n/).map((line, index) => {
+            const trimmed = line.trimEnd();
+            const isEmpty = trimmed.trim().length === 0;
+
+            if (isEmpty) {
+              return <div key={index} style={{ height: 8 }} />;
+            }
+
+            const isBullet = trimmed.trimStart().startsWith("- ");
+            const content = isBullet ? trimmed.trimStart().replace(/^-\s+/, "") : trimmed;
+
+            const InlineMarkdown = (
+              <ReactMarkdown
+                key={`md-${index}`}
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
+                  strong: ({ children }: { children?: React.ReactNode }) => (
+                    <span style={{ fontWeight: "bold" }}>{children}</span>
+                  ),
+                  em: ({ children }: { children?: React.ReactNode }) => (
+                    <span style={{ fontStyle: "italic" }}>{children}</span>
+                  ),
+                  u: ({ children }: { children?: React.ReactNode }) => (
+                    <span style={{ textDecoration: "underline" }}>{children}</span>
+                  ),
+                  del: ({ children }: { children?: React.ReactNode }) => (
+                    <span style={{ textDecoration: "line-through" }}>{children}</span>
+                  ),
+                  code: ({ children }: { children?: React.ReactNode }) => (
+                    <span
+                      style={{
+                        fontFamily: "Noto Sans Mono, monospace",
+                      }}
+                    >
+                      {children}
+                    </span>
+                  ),
+                  a: ({
+                    children,
+                    href,
+                  }: {
+                    children?: React.ReactNode;
+                    href?: string;
+                  }) => (
+                    <span style={{ textDecoration: "underline" }}>
+                      {children}
+                      {href ? ` (${href})` : null}
+                    </span>
+                  ),
+                }}
+              >
+                {content}
+              </ReactMarkdown>
+            );
+
+            if (isBullet) {
+              return (
+                <div
+                  key={index}
                   style={{
-                    fontFamily: "Noto Sans Mono, monospace"
+                    display: "flex",
+                    flexDirection: "row",
                   }}
                 >
-                  {children}
-                </span>
-              ),
-              a: ({
-                children,
-                href,
-              }: {
-                children?: React.ReactNode;
-                href?: string;
-              }) => (
-                <span style={{ textDecoration: "underline" }}>
-                  {children}
-                  {href ? ` (${href})` : null}
-                </span>
-              ),
-            }}
-          >
-            {message}
-          </ReactMarkdown>
+                  <span style={{ marginRight: 6 }}>•</span>
+                  {InlineMarkdown}
+                </div>
+              );
+            }
 
+            return (
+              <div
+                key={index}
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                }}
+              >
+                {InlineMarkdown}
+              </div>
+            );
+          })
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.7 }}>
             <span>Пока нет сообщений.</span>
