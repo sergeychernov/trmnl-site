@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Bot, webhookCallback } from "grammy";
+import type { MessageEntity } from "grammy/types";
 import { getDb } from "@/lib/mongodb";
 import type { TelegramLinkDoc, AccountDoc, DeviceMemberDoc, DeviceDoc, UserDoc } from "@/db/types";
 import { saveDevicePluginData } from "@/db/dataDevice";
@@ -169,10 +170,67 @@ bot.command("help", async (ctx) => {
 	);
 });
 
-// Обработка обычных текстовых сообщений — сохраняем их как данные для Telegram-плагина
+// Преобразуем текст + entities Telegram в простой Markdown (Markdown-подобная разметка)
+function formatTelegramTextAsMarkdown(text: string, entities?: MessageEntity[]): string {
+	if (!entities || entities.length === 0) {
+		return text;
+	}
+
+	// Сортируем сущности по убыванию offset, чтобы индексы не сдвигались при вставках
+	const sorted = [...entities].sort((a, b) => b.offset - a.offset);
+	let result = text;
+
+	for (const entity of sorted) {
+		const start = entity.offset;
+		const end = entity.offset + entity.length;
+		const before = result.slice(0, start);
+		const middle = result.slice(start, end);
+		const after = result.slice(end);
+
+		let wrapped = middle;
+		switch (entity.type) {
+			case "bold":
+				wrapped = `**${middle}**`;
+				break;
+			case "italic":
+				wrapped = `_${middle}_`;
+				break;
+			case "underline":
+				wrapped = `__${middle}__`;
+				break;
+			case "strikethrough":
+				wrapped = `~~${middle}~~`;
+				break;
+			case "code":
+				wrapped = `\`${middle}\``;
+				break;
+			case "pre":
+				// Для простоты отображаем как инлайн-код
+				wrapped = `\`${middle}\``;
+				break;
+			case "text_link":
+				// text_link содержит URL в entity.url
+				if ("url" in entity && entity.url) {
+					wrapped = `[${middle}](${entity.url})`;
+				}
+				break;
+			default:
+				// Остальные типы (mention, url и т.п.) отображаем как есть
+				break;
+		}
+
+		result = before + wrapped + after;
+	}
+
+	return result;
+}
+
+// Обработка обычных текстовых сообщений — сохраняем их как данные для Telegram-плагина,
+// включая базовое форматирование (жирный, курсив, подчёркнутый, зачёркнутый, code, pre, text_link).
 bot.on("message:text", async (ctx) => {
 	const telegramId = ctx.from?.id;
-	const text = ctx.message?.text?.trim();
+	const rawText = ctx.message?.text ?? "";
+	const text = rawText.trim();
 
 	if (!telegramId || !text) {
 		return;
@@ -238,12 +296,15 @@ bot.on("message:text", async (ctx) => {
 		return;
 	}
 
+	// Преобразуем текст с учётом Telegram entities в Markdown-подобную разметку
+	const markdownText = formatTelegramTextAsMarkdown(rawText, ctx.message?.entities);
+
 	// Сохраняем сообщение для каждого устройства с плагином Telegram
 	for (const device of devicesWithTelegram) {
 		await saveDevicePluginData<string>({
 			pluginId,
 			deviceId: device._id,
-			data: text,
+			data: markdownText,
 			createdBy: account.userId,
 			strategy,
 		});
