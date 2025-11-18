@@ -83,26 +83,6 @@ export async function GET(request: Request) {
 			}
 		} else {
 			console.error(`Device not found: ${mac}`);
-			const uniqueId =
-				Math.random().toString(36).substring(2, 7) + Date.now().toString(36).slice(-3);
-			const ts = Date.now();
-			// Направляем устройство на универсальный рендер `/api/trmnl`, который покажет экран регистрации (QR)
-			// и одновременно просим устройство перейти в setup через reset_firmware + special_function.
-			const image_url = `${base}/api/trmnl?ts=${ts}&id=${mac}`;
-			return NextResponse.json(
-				{
-					status: 500,
-					message: "Device not found",
-					image_url,
-					filename: `not-found_${uniqueId}.bmp`,
-					refresh_rate,
-					reset_firmware: true,
-					update_firmware: false,
-					firmware_url: null,
-					special_function: "restart_playlist",
-				},
-				{ status: 200 },
-			);
 		}
 	} catch (error) {
 		console.error("Error fetching device from database:", error);

@@ -18,6 +18,7 @@ export type Orientation = "landscape" | "portrait";
 export type PluginRenderContext = {
 	deviceId: string | null;
 	baseUrl: string;
+	telegramId?: string | null;
 };
 
 export type RenderArgs<TSettings extends object = Record<string, unknown>> = {

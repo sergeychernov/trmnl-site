@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 	}
 	const origin = getBaseUrl(request);
 	let user: UserSettings = { name: "", age: 0 }; // по умолчанию
-	let context = { deviceId: null as string | null, baseUrl: origin };
+	let context = { deviceId: null as string | null, baseUrl: origin, telegramId: null as string | null };
 	if (deviceHash) {
 		try {
 			const device = await findDeviceByHash(deviceHash);
@@ -52,21 +52,76 @@ export async function GET(request: Request) {
 					name: String(u?.name ?? ""),
 					age: Number(u?.age ?? 0),
 				};
-				context = { deviceId: device.hash, baseUrl: origin };
+				
+				// Получаем telegramId владельца устройства
+				let telegramId: string | null = null;
+				try {
+					const { getDb } = await import("@/lib/mongodb");
+					const db = await getDb();
+					const deviceMembers = db.collection<import("@/db/types").DeviceMemberDoc>("device_members");
+					const accounts = db.collection<import("@/db/types").AccountDoc>("accounts");
+					
+					// device приходит из findDeviceByHash и имеет _id
+					const deviceWithId = device as import("@/db/devices").DeviceWithId;
+					const owner = await deviceMembers.findOne({ 
+						deviceId: deviceWithId._id, 
+						role: "owner",
+						status: "active"
+					});
+					
+					if (owner) {
+						const telegramAccount = await accounts.findOne({
+							userId: owner.userId,
+							provider: "telegram"
+						});
+						
+						if (telegramAccount) {
+							telegramId = telegramAccount.providerAccountId;
+						}
+					}
+				} catch {
+					// Игнорируем ошибки получения telegramId
+				}
+				
+				context = { deviceId: device.hash, baseUrl: origin, telegramId };
 			}
 		} catch {
 			// игнорируем, оставляем дефолтного пользователя
 		}
 	}
-	const image = await renderPlugin(plugin as import("@/plugins").Plugin<Record<string, unknown>>, {
-		user,
-		settings,
-		context,
-		index,
-		width,
-		height,
-	});
+	let image: Awaited<ReturnType<typeof renderPlugin>> | null = null;
+	try {
+		image = await renderPlugin(plugin as import("@/plugins").Plugin<Record<string, unknown>>, {
+			user,
+			settings,
+			context,
+			index,
+			width,
+			height,
+		});
+	} catch (error) {
+		// Диагностика ошибок рендера (OG / React)
+		// ВАЖНО: не логируем чувствительные данные, только параметры рендера
+		console.error("[render-plugin] error", {
+			pluginId,
+			width,
+			height,
+			index,
+			deviceHash,
+			hasTelegramId: !!context.telegramId,
+			error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
+		});
+		return NextResponse.json({ error: "render_failed" }, { status: 500 });
+	}
 	if (!image) {
+		console.error("[render-plugin] null image returned", {
+			pluginId,
+			width,
+			height,
+			index,
+			deviceHash,
+			hasTelegramId: !!context.telegramId,
+		});
 		return NextResponse.json({ error: "unsupported size for plugin" }, { status: 400 });
 	}
 

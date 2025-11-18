@@ -6,6 +6,7 @@ import { findDeviceByHash } from "@/db/devices";
 import { getPlugin } from "@/plugins";
 import { renderPlugin } from "@/plugins/server";
 import type { MonochromeImage } from "@/plugins/types";
+import { getDb } from "@/lib/mongodb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,10 +90,42 @@ export async function GET(request: Request) {
 		const descriptor = pluginsArray[i] ?? { name: defaultPlugin?.id ?? "empty", settings: defaultPlugin?.defaultSettings ?? {} };
 		const plugin = getPlugin(descriptor.name) ?? defaultPlugin;
 		if (!plugin) continue;
+
+		// Получаем telegramId владельца устройства
+		let telegramId: string | null = null;
+		try {
+			const db = await getDb();
+			const deviceMembers = db.collection<import("@/db/types").DeviceMemberDoc>("device_members");
+			const accounts = db.collection<import("@/db/types").AccountDoc>("accounts");
+
+			// Находим владельца устройства
+			// device приходит из findDeviceByHash и имеет _id
+			const deviceWithId = device as import("@/db/devices").DeviceWithId;
+			const owner = await deviceMembers.findOne({
+				deviceId: deviceWithId._id,
+				role: "owner",
+				status: "active"
+			});
+
+			if (owner) {
+				// Находим его Telegram аккаунт
+				const telegramAccount = await accounts.findOne({
+					userId: owner.userId,
+					provider: "telegram"
+				});
+
+				if (telegramAccount) {
+					telegramId = telegramAccount.providerAccountId;
+				}
+			}
+		} catch {
+			// Игнорируем ошибки получения telegramId
+		}
+
 		const image = await renderPlugin(plugin as unknown as import("@/plugins").Plugin<Record<string, unknown>>, {
 			user: device.info?.user ? { name: device.info.user.name ?? "", age: Number(device.info.user.age ?? 0) } : undefined,
 			settings: (descriptor.settings ?? {}) as Record<string, unknown>,
-			context: { deviceId: device.hash, baseUrl },
+			context: { deviceId: device.hash, baseUrl, telegramId },
 			index: i + 1,
 			width: size.width,
 			height: size.height,
