@@ -1,5 +1,6 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { RenderArgs } from "../types";
 import type { TelegramSettings } from "./index";
 
@@ -20,7 +21,8 @@ export default function Render({
     height,
     backgroundColor: "white",
     color: "black",
-    fontFamily: "Noto Sans",
+    // Для тестов шрифтов: первым указан PT Sans, затем Rubik / Open Sans, потом Noto Sans как фолбэк.
+    fontFamily: '"Noto Sans", "Open Sans", "Rubik", "PT Sans", sans-serif',
     display: "flex" as const,
     flexDirection: "column" as const,
     padding: 24,
@@ -67,8 +69,8 @@ export default function Render({
           gap: 8,
         }}
       >
-        <span style={{ fontSize: 32 }}>📨</span>
-        <span style={{ fontSize: 24, fontWeight: "bold" }}>Сообщения из Telegram</span>
+        <span style={{ fontSize: 32 }}>📨</span><span style={{ fontSize: 24 }}>Сообщения из Telegram</span>
+        <span style={{ fontSize: 24, fontWeight: "700" }}>Сообщения из Telegram</span>
       </div>
 
       <div
@@ -83,64 +85,51 @@ export default function Render({
         }}
       >
         {message ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <span style={{ opacity: 0.7 }}>Последнее сообщение:</span>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                whiteSpace: "pre-wrap",
-                gap: 4,
-              }}
-            >
-              <ReactMarkdown
-                components={{
-                  p: ({ children }: { children?: React.ReactNode }) => (
-                    // каждая параграфная строка — отдельный span для OG-совместимости
-                    <span style={{ display: "flex", flexDirection: "column" }}>
-                      {children}
-                    </span>
-                  ),
-                  strong: ({ children }: { children?: React.ReactNode }) => (
-                    <span style={{ fontWeight: "bold" }}>{children}</span>
-                  ),
-                  em: ({ children }: { children?: React.ReactNode }) => (
-                    <span style={{ fontStyle: "italic" }}>{children}</span>
-                  ),
-                  u: ({ children }: { children?: React.ReactNode }) => (
-                    <span style={{ textDecoration: "underline" }}>{children}</span>
-                  ),
-                  del: ({ children }: { children?: React.ReactNode }) => (
-                    <span style={{ textDecoration: "line-through" }}>{children}</span>
-                  ),
-                  code: ({ children }: { children?: React.ReactNode }) => (
-                    <span
-                      style={{
-                        fontFamily: "Noto Sans Mono, monospace",
-                        fontSize: 16,
-                      }}
-                    >
-                      {children}
-                    </span>
-                  ),
-                  a: ({
-                    children,
-                    href,
-                  }: {
-                    children?: React.ReactNode;
-                    href?: string;
-                  }) => (
-                    <span style={{ textDecoration: "underline" }}>
-                      {children}
-                      {href ? ` (${href})` : null}
-                    </span>
-                  ),
-                }}
-              >
-                {message}
-              </ReactMarkdown>
-            </div>
-          </div>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              // Один параграф = одна строка; не разбиваем контент по вертикали
+              p: ({ children }: { children?: React.ReactNode }) => (
+                <span style={{ whiteSpace: "pre-wrap" }}>{children}</span>
+              ),
+              strong: ({ children }: { children?: React.ReactNode }) => (
+                <span style={{ fontWeight: "bold" }}>{children}</span>
+              ),
+              em: ({ children }: { children?: React.ReactNode }) => (
+                <span style={{ fontStyle: "italic" }}>{children}</span>
+              ),
+              u: ({ children }: { children?: React.ReactNode }) => (
+                <span style={{ textDecoration: "underline" }}>{children}</span>
+              ),
+              del: ({ children }: { children?: React.ReactNode }) => (
+                <span style={{ textDecoration: "line-through" }}>{children}</span>
+              ),
+              code: ({ children }: { children?: React.ReactNode }) => (
+                <span
+                  style={{
+                    fontFamily: "Noto Sans Mono, monospace"
+                  }}
+                >
+                  {children}
+                </span>
+              ),
+              a: ({
+                children,
+                href,
+              }: {
+                children?: React.ReactNode;
+                href?: string;
+              }) => (
+                <span style={{ textDecoration: "underline" }}>
+                  {children}
+                  {href ? ` (${href})` : null}
+                </span>
+              ),
+            }}
+          >
+            {message}
+          </ReactMarkdown>
+
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.7 }}>
             <span>Пока нет сообщений.</span>
@@ -149,22 +138,6 @@ export default function Render({
             </span>
           </div>
         )}
-      </div>
-
-      <div
-        style={{
-          marginTop: "auto",
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: "flex-end",
-          fontSize: 14,
-          opacity: 0.6,
-          gap: 4,
-        }}
-      >
-        <span>Telegram ID:</span>
-        <span>{telegramId ?? "—"}</span>
-        {user?.name && <span>· {user.name}</span>}
       </div>
     </div>
   );
