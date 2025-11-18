@@ -89,4 +89,16 @@ export type UserDoc = {
 	passwordHash?: string | null;
 };
 
+// Обобщённый документ данных плагина для конкретного устройства
+export type DataDevicePlugin<TData> = {
+	deviceId: ObjectId;
+	data: TData;
+	createdAt: Date;
+	createdBy: ObjectId;
+};
+
+// Данные плагина telegram для устройства (одна запись = одно сообщение)
+export type DataDeviceTelegramDoc = DataDevicePlugin<string>;
+
+
 

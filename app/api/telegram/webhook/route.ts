@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { Bot, webhookCallback } from "grammy";
 import { getDb } from "@/lib/mongodb";
 import type { TelegramLinkDoc, AccountDoc, DeviceMemberDoc, DeviceDoc, UserDoc } from "@/db/types";
+import { saveDevicePluginData } from "@/db/dataDevice";
+import { getPlugin } from "@/plugins";
 
 // Создаём экземпляр бота
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "");
@@ -163,15 +165,102 @@ bot.command("help", async (ctx) => {
 		"/start <код> - Привязать Telegram аккаунт\n" +
 		"/devices - Показать список ваших устройств\n" +
 		"/help - Показать это сообщение",
-		{ parse_mode: "Markdown" }
+		{ parse_mode: "Markdown" },
 	);
 });
 
-// Обработка остальных сообщений
-bot.on("message", async (ctx) => {
-	await ctx.reply(
-		"Используйте /help для просмотра доступных команд."
+// Обработка обычных текстовых сообщений — сохраняем их как данные для Telegram-плагина
+bot.on("message:text", async (ctx) => {
+	const telegramId = ctx.from?.id;
+	const text = ctx.message?.text?.trim();
+
+	if (!telegramId || !text) {
+		return;
+	}
+	// Игнорируем команды (они уже обработаны в других хендлерах)
+	if (text.startsWith("/")) {
+		return;
+	}
+
+	const db = await getDb();
+	const accounts = db.collection<AccountDoc>("accounts");
+	const deviceMembers = db.collection<DeviceMemberDoc>("device_members");
+	const devices = db.collection<DeviceDoc>("devices");
+
+	// Находим аккаунт пользователя
+	const account = await accounts.findOne({
+		provider: "telegram",
+		providerAccountId: telegramId.toString(),
+	});
+	if (!account) {
+		await ctx.reply(
+			"Ваш Telegram аккаунт не привязан. Используйте ссылку из настроек профиля для привязки.",
+		);
+		return;
+	}
+
+	// Находим все активные устройства пользователя
+	const memberships = await deviceMembers
+		.find({ userId: account.userId, status: "active" })
+		.toArray();
+	if (memberships.length === 0) {
+		await ctx.reply("У вас пока нет подключенных устройств.");
+		return;
+	}
+
+	const deviceIds = memberships.map((m) => m.deviceId);
+	const deviceDocs = await devices
+		.find({ _id: { $in: deviceIds } })
+		.toArray();
+
+	// Оставляем только устройства, где подключён плагин telegram
+	const pluginId = "telegram";
+	const devicesWithTelegram = deviceDocs.filter(
+		(device) =>
+			Array.isArray(device.plugins) &&
+			device.plugins.some((p) => p.name === pluginId),
 	);
+
+	if (devicesWithTelegram.length === 0) {
+		await ctx.reply(
+			"У вас нет устройств с плагином Telegram. Добавьте плагин Telegram в настройках устройства.",
+		);
+		return;
+	}
+
+	// Узнаём стратегию данных плагина из реестра
+	const telegramPlugin = getPlugin(pluginId);
+	const strategy = telegramPlugin?.dataStrategy ?? "none";
+	if (strategy === "none") {
+		await ctx.reply(
+			"Сообщение получено, но плагин Telegram не настроен для хранения данных.",
+		);
+		return;
+	}
+
+	// Сохраняем сообщение для каждого устройства с плагином Telegram
+	for (const device of devicesWithTelegram) {
+		await saveDevicePluginData<string>({
+			pluginId,
+			deviceId: device._id,
+			data: text,
+			createdBy: account.userId,
+			strategy,
+		});
+	}
+
+	if (devicesWithTelegram.length === 1) {
+		const onlyDevice = devicesWithTelegram[0];
+		const membership = memberships.find((m) =>
+			m.deviceId.equals(onlyDevice._id),
+		);
+		const alias = membership?.alias || onlyDevice.hash;
+		await ctx.reply(`Сообщение отправлено на устройство ${alias}.`);
+	} else {
+		await ctx.reply(
+			`Сообщение отправлено на ${devicesWithTelegram.length} устройств с плагином Telegram.`,
+		);
+	}
 });
 
 // Создаём обработчик webhook

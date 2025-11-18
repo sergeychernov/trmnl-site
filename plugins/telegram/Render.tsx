@@ -2,93 +2,117 @@ import React from "react";
 import type { RenderArgs } from "../types";
 import type { TelegramSettings } from "./index";
 
+// Плагин Telegram: показывает последнее сообщение, которое внешний код передал через `data`,
+// и аккуратно обрабатывает случай, когда Telegram ещё не привязан или сообщений нет.
 export default function Render({
-	user,
-	context,
-	width,
-	height,
-}: RenderArgs<TelegramSettings>) {
-	const telegramId = context?.telegramId;
+  user,
+  data,
+  context,
+  width,
+  height,
+}: RenderArgs<TelegramSettings, string>) {
+  const telegramId = context?.telegramId ?? null;
+  const message = typeof data === "string" && data.trim().length > 0 ? data.trim() : null;
 
-	// Лог для диагностики проблем OG‑рендера
-	console.log("[telegram-plugin] render", {
-		width,
-		height,
-		hasUser: !!user,
-		hasTelegramId: !!telegramId,
-	});
+  const baseStyle = {
+    width,
+    height,
+    backgroundColor: "white",
+    color: "black",
+    fontFamily: "Noto Sans",
+    display: "flex" as const,
+    flexDirection: "column" as const,
+    padding: 24,
+  } as const;
 
-	// Если Telegram не привязан
-	if (!telegramId) {
-		return (
-			<div
-				style={{
-					width,
-					height,
-					backgroundColor: "white",
-					display: "flex",
-					flexDirection: "column",
-					alignItems: "center",
-					justifyContent: "center",
-					fontFamily: "Noto Sans",
-					fontSize: 20,
-					color: "black",
-					padding: 40,
-					textAlign: "center",
-				}}
-			>
-				<div style={{ fontSize: 60, marginBottom: 20 }}>⚠️</div>
-				<div style={{ lineHeight: 1.5, display: "flex", flexDirection: "column" }}>
-					Для работы этого плагина
-					<br />
-					привяжите Telegram аккаунт
-					<br />
-					в профиле пользователя
-				</div>
-			</div>
-		);
-	}
+  // Если Telegram не привязан — просим привязать аккаунт
+  if (!telegramId) {
+    return (
+      <div style={baseStyle}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: 60, marginBottom: 16 }}>⚠️</div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              lineHeight: 1.5,
+            }}
+          >
+            <span>Для работы этого плагина</span>
+            <span>привяжите Telegram аккаунт</span>
+            <span>в профиле пользователя</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-	const containerStyle: React.CSSProperties = {
-		width,
-		height,
-		backgroundColor: "white",
-		color: "black",
-		fontFamily: "Noto Sans",
-		padding: 30,
-		display: "flex",
-		flexDirection: "column",
-	};
+  return (
+    <div style={baseStyle}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          marginBottom: 12,
+          gap: 8,
+        }}
+      >
+        <span style={{ fontSize: 32 }}>📨</span>
+        <span style={{ fontSize: 24, fontWeight: "bold" }}>Сообщения из Telegram</span>
+      </div>
 
-	return (
-		<div style={containerStyle}>
-			<h1>
-				Telegram TRMNL
-			</h1>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          textAlign: "left",
+          fontSize: 18,
+          lineHeight: 1.4,
+        }}
+      >
+        {message ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span style={{ opacity: 0.7 }}>Последнее сообщение:</span>
+            <span style={{ whiteSpace: "pre-wrap" }}>{message}</span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.7 }}>
+            <span>Пока нет сообщений.</span>
+            <span>
+              Отправьте сообщение боту <strong>@trmnlmsgbot</strong>, чтобы увидеть его здесь.
+            </span>
+          </div>
+        )}
+      </div>
 
-			<div
-				style={{
-					flex: 1,
-					display: "flex",
-					flexDirection: "column",
-					alignItems: "center",
-					justifyContent: "center",
-					gap: 12,
-					textAlign: "center",
-				}}
-			>
-				<div
-					style={{
-						display: "flex",
-						flexDirection: "column",
-						gap: 4,
-						fontSize: 18,
-					}}
-				>
-					<span>Здесь будут выводиться сообщения,</span>
-					<span>которые бот TRMNL отправляет на это устройство.</span>
-				</div>
-			</div>
-		</div>
-	);
+      <div
+        style={{
+          marginTop: "auto",
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          fontSize: 14,
+          opacity: 0.6,
+          gap: 4,
+        }}
+      >
+        <span>Telegram ID:</span>
+        <span>{telegramId ?? "—"}</span>
+        {user?.name && <span>· {user.name}</span>}
+      </div>
+    </div>
+  );
 }
+
+

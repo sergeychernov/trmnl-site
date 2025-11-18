@@ -5,6 +5,7 @@ import { getBaseUrl } from "@/lib/parsers";
 import { renderPlugin } from "@/plugins/server";
 import { toMonochromeBmp } from "@lib/bmp";
 import { findDeviceByHash } from "@/db/devices";
+import { loadDevicePluginData } from "@/db/dataDevice";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,13 +37,15 @@ export async function GET(request: Request) {
 		}
 	}
 
-	const plugin = getPlugin(pluginId);
+	const plugin = getPlugin<Record<string, unknown>, unknown>(pluginId);
 	if (!plugin) {
 		return NextResponse.json({ error: "plugin not found" }, { status: 404 });
 	}
 	const origin = getBaseUrl(request);
 	let user: UserSettings = { name: "", age: 0 }; // по умолчанию
 	let context = { deviceId: null as string | null, baseUrl: origin, telegramId: null as string | null };
+	// Значения данных по умолчанию (если плагин использует внешнее хранилище)
+	let data: unknown = plugin.defaultData;
 	if (deviceHash) {
 		try {
 			const device = await findDeviceByHash(deviceHash);
@@ -52,7 +55,7 @@ export async function GET(request: Request) {
 					name: String(u?.name ?? ""),
 					age: Number(u?.age ?? 0),
 				};
-				
+
 				// Получаем telegramId владельца устройства
 				let telegramId: string | null = null;
 				try {
@@ -60,21 +63,21 @@ export async function GET(request: Request) {
 					const db = await getDb();
 					const deviceMembers = db.collection<import("@/db/types").DeviceMemberDoc>("device_members");
 					const accounts = db.collection<import("@/db/types").AccountDoc>("accounts");
-					
+
 					// device приходит из findDeviceByHash и имеет _id
 					const deviceWithId = device as import("@/db/devices").DeviceWithId;
-					const owner = await deviceMembers.findOne({ 
-						deviceId: deviceWithId._id, 
+					const owner = await deviceMembers.findOne({
+						deviceId: deviceWithId._id,
 						role: "owner",
 						status: "active"
 					});
-					
+
 					if (owner) {
 						const telegramAccount = await accounts.findOne({
 							userId: owner.userId,
 							provider: "telegram"
 						});
-						
+
 						if (telegramAccount) {
 							telegramId = telegramAccount.providerAccountId;
 						}
@@ -82,7 +85,27 @@ export async function GET(request: Request) {
 				} catch {
 					// Игнорируем ошибки получения telegramId
 				}
-				
+
+				// Подгружаем данные плагина для конкретного устройства, если указана стратегия
+				if (plugin.dataStrategy && plugin.dataStrategy !== "none") {
+					try {
+						const { getDb } = await import("@/lib/mongodb");
+						const db = await getDb();
+						const deviceWithId = device as import("@/db/devices").DeviceWithId;
+						const stored = await loadDevicePluginData<unknown>({
+							pluginId,
+							deviceId: deviceWithId._id,
+							strategy: plugin.dataStrategy,
+							db,
+						});
+						if (typeof stored !== "undefined") {
+							data = stored;
+						}
+					} catch {
+						// Ошибки загрузки данных не должны ломать рендер, оставляем data по умолчанию
+					}
+				}
+
 				context = { deviceId: device.hash, baseUrl: origin, telegramId };
 			}
 		} catch {
@@ -91,9 +114,10 @@ export async function GET(request: Request) {
 	}
 	let image: Awaited<ReturnType<typeof renderPlugin>> | null = null;
 	try {
-		image = await renderPlugin(plugin as import("@/plugins").Plugin<Record<string, unknown>>, {
+		image = await renderPlugin(plugin as import("@/plugins").Plugin<Record<string, unknown>, unknown>, {
 			user,
 			settings,
+			data,
 			context,
 			index,
 			width,

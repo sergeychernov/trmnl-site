@@ -48,7 +48,7 @@ alwaysApply: true
 - Нормализация MAC перед хешированием: верхний регистр, удаление не шестнадцатеричных символов.
 - Хеш может вычисляться как на сервере, так и в клиенте; в URL‑сегментах (например, `/settings/[id]`) используется именно этот ID.
 
-### Настройки и плагины
+### Настройки, плагины и данные плагинов
 - Структура настроек:
   - Пользователь: `{ name: string; age: number }`
   - Устройство: `{ pluginId: string; pluginSettings: unknown }`
@@ -62,11 +62,19 @@ alwaysApply: true
 - Плагины размещаются в `plugins/${pluginName}` и регистрируются в `plugins/index.ts`.
 - Контракт плагина (см. `plugins/types.ts`):
   - `id: string`, `name: string`
-  - `outputSize: { width: number; height: number }` — фиксированный размер изображения для плагина
-  - `defaultSettings: object`
+  - `outputSizes: Array<{ width?: number; height?: number }>` — список поддерживаемых размеров; пустой массив означает «без ограничений»
+  - `defaultSettings: TSettings` — значения настроек по умолчанию
+  - `defaultData?: TData` — значения по умолчанию для данных плагина (если плагин использует внешнее хранилище)
   - `validate(value): value is TSettings` — рантайм‑валидация настроек плагина
-  - `render(user, device, context): Promise<MonochromeImage>`
-    - `context = { deviceId: string | null; baseUrl: string }`
+  - `dataStrategy?: "none" | "append" | "replace"` — стратегия хранения данных плагина:
+    - `none` — плагин не использует внешнее хранилище;
+    - `append` — каждое новое значение `data` добавляется в коллекцию `data_device_<pluginId>` как отдельный документ;
+    - `replace` — в `data_device_<pluginId>` всегда один документ на устройство, новое значение перезаписывает старое.
+  - `render(args: RenderArgs<TSettings, TData>): Promise<MonochromeImage> | ReactElement`
+    - `args.user: UserSettings` — данные о пользователе (`{ name, age }`);
+    - `args.settings: TSettings` — настройки плагина из `settings.device.pluginSettings`;
+    - `args.data?: TData` — данные, подгруженные внешним кодом из БД (через `db/dataDevice.ts` и `Plugin.dataStrategy`);
+    - `args.context: { deviceId: string | null; baseUrl: string; telegramId?: string | null }`;
 - Формат изображения `MonochromeImage`:
   - `width`, `height` — пиксели
   - `data: Uint8Array` — 1‑бит на пиксель, упаковано побайтно (MSB→LSB), строка за строкой

@@ -8,7 +8,7 @@ import schoolSchedule from "./school-schedule";
 import telegram from "./telegram";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const registry: Record<string, Plugin<any>> = {
+const registry: Record<string, Plugin<any, any>> = {
 	[hello.id]: hello,
 	[symbols.id]: symbols,
 	[empty.id]: empty,
@@ -17,12 +17,14 @@ const registry: Record<string, Plugin<any>> = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function listPlugins(): Plugin<any>[] {
+export function listPlugins(): Plugin<any, any>[] {
 	return Object.values(registry);
 }
 
-export function getPlugin<T extends object = Record<string, unknown>>(id: string): Plugin<T> | undefined {
-	return registry[id] as Plugin<T> | undefined;
+export function getPlugin<TSettings extends object = Record<string, unknown>, TData = unknown>(
+	id: string,
+): Plugin<TSettings, TData> | undefined {
+	return registry[id] as Plugin<TSettings, TData> | undefined;
 }
 
 export * from "./types";

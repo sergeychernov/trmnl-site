@@ -9,6 +9,7 @@ import type { MonochromeImage } from "@/plugins/types";
 import { getDb } from "@/lib/mongodb";
 import type { DeviceMemberDoc, AccountDoc } from "@/db/types";
 import type { DeviceWithId } from "@/db/devices";
+import { loadDevicePluginData } from "@/db/dataDevice";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -124,9 +125,28 @@ export async function GET(request: Request) {
 			// Игнорируем ошибки получения telegramId
 		}
 
+		// Подгружаем данные плагина для данного слота, если плагин объявил стратегию хранения
+		let data: unknown = plugin.defaultData;
+		if (plugin.dataStrategy && plugin.dataStrategy !== "none") {
+			try {
+				const deviceWithId = device as DeviceWithId;
+				const stored = await loadDevicePluginData<unknown>({
+					pluginId: plugin.id,
+					deviceId: deviceWithId._id,
+					strategy: plugin.dataStrategy,
+				});
+				if (typeof stored !== "undefined") {
+					data = stored;
+				}
+			} catch {
+				// Ошибки загрузки данных не должны ломать рендер, оставляем data по умолчанию
+			}
+		}
+
 		const image = await renderPlugin(plugin, {
 			user: device.info?.user ? { name: device.info.user.name ?? "", age: Number(device.info.user.age ?? 0) } : undefined,
 			settings: (descriptor.settings ?? {}) as Record<string, unknown>,
+			data,
 			context: { deviceId: device.hash, baseUrl, telegramId },
 			index: i + 1,
 			width: size.width,
