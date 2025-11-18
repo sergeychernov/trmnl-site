@@ -60,4 +60,33 @@ export type DeviceMemberDoc = {
 	updatedAt?: Date;
 };
 
+export type TelegramLinkDoc = {
+	userId: ObjectId;
+	linkCode: string;
+	expiresAt: Date;
+	createdAt: Date;
+};
+
+export type AccountDoc = {
+	provider: string;
+	userId: ObjectId;
+	providerAccountId: string;
+	access_token: string | null;
+	refresh_token: string | null;
+	extraData?: {
+		username?: string | null;
+		first_name?: string | null;
+		last_name?: string | null;
+	};
+};
+
+export type UserDoc = {
+	_id?: ObjectId;
+	email: string;
+	name?: string | null;
+	image?: string | null;
+	emailVerified?: Date | null;
+	passwordHash?: string | null;
+};
+
 

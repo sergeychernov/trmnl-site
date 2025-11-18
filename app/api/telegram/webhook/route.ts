@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Bot, webhookCallback } from "grammy";
 import { getDb } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import type { TelegramLinkDoc, AccountDoc, DeviceMemberDoc, DeviceDoc, UserDoc } from "@/db/types";
 
 // Создаём экземпляр бота
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "");
@@ -18,9 +18,9 @@ bot.command("start", async (ctx) => {
 	}
 
 	const db = await getDb();
-	const telegramLinks = db.collection("telegram_links");
-	const accounts = db.collection("accounts");
-	const users = db.collection("users");
+	const telegramLinks = db.collection<TelegramLinkDoc>("telegram_links");
+	const accounts = db.collection<AccountDoc>("accounts");
+	const users = db.collection<UserDoc>("users");
 
 	// Ищем активный код привязки
 	const linkDoc = await telegramLinks.findOne({
@@ -87,10 +87,90 @@ bot.command("start", async (ctx) => {
 	);
 });
 
+// Команда для вывода списка устройств
+bot.command("devices", async (ctx) => {
+	const telegramId = ctx.from?.id;
+	if (!telegramId) {
+		await ctx.reply("Не удалось получить ваш Telegram ID.");
+		return;
+	}
+
+	const db = await getDb();
+	const accounts = db.collection<AccountDoc>("accounts");
+	const deviceMembers = db.collection<DeviceMemberDoc>("device_members");
+	const devices = db.collection<DeviceDoc>("devices");
+
+	// Находим аккаунт пользователя
+	const account = await accounts.findOne({
+		provider: "telegram",
+		providerAccountId: telegramId.toString(),
+	});
+
+	if (!account) {
+		await ctx.reply(
+			"Ваш Telegram аккаунт не привязан. Используйте ссылку из настроек профиля для привязки."
+		);
+		return;
+	}
+
+	// Находим все устройства пользователя
+	const userDevices = await deviceMembers.find({
+		userId: account.userId,
+		status: "active"
+	}).toArray();
+
+	if (userDevices.length === 0) {
+		await ctx.reply("У вас пока нет подключенных устройств.");
+		return;
+	}
+
+	// Получаем информацию об устройствах
+	const deviceIds = userDevices.map(dm => dm.deviceId);
+	const deviceDocs = await devices.find({
+		_id: { $in: deviceIds }
+	}).toArray();
+
+	// Формируем список устройств
+	let message = "📱 *Ваши устройства:*\n\n";
+
+	for (const deviceMember of userDevices) {
+		const device = deviceDocs.find(d => d._id.equals(deviceMember.deviceId));
+		if (device) {
+			const alias = deviceMember.alias || "Без названия";
+			const role = deviceMember.role === "owner" ? "Владелец" : deviceMember.role === "editor" ? "Редактор" : "Наблюдатель";
+			const lastUpdate = device.last_update_time
+				? new Date(device.last_update_time).toLocaleString("ru-RU", { timeZone: device.timezone || "Europe/Moscow" })
+				: "Не обновлялось";
+
+			message += `• *${alias}*\n`;
+			message += `  Роль: ${role}\n`;
+			message += `  hash: \`${device.hash}\`\n`;
+			message += `  Последнее обновление: ${lastUpdate}\n`;
+			if (device.battery_voltage) {
+				message += `  Батарея: ${device.battery_voltage}V\n`;
+			}
+			message += "\n";
+		}
+	}
+
+	await ctx.reply(message, { parse_mode: "Markdown" });
+});
+
+// Команда помощи
+bot.command("help", async (ctx) => {
+	await ctx.reply(
+		"🤖 *Доступные команды:*\n\n" +
+		"/start <код> - Привязать Telegram аккаунт\n" +
+		"/devices - Показать список ваших устройств\n" +
+		"/help - Показать это сообщение",
+		{ parse_mode: "Markdown" }
+	);
+});
+
 // Обработка остальных сообщений
 bot.on("message", async (ctx) => {
 	await ctx.reply(
-		"Используйте ссылку с кодом привязки из настроек профиля для привязки аккаунта."
+		"Используйте /help для просмотра доступных команд."
 	);
 });
 

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import crypto from "crypto";
+import type { TelegramLinkDoc } from "@/db/types";
 
 // Генерация 8-значного числового кода
 function generateLinkCode(): string {
@@ -20,7 +21,7 @@ export async function POST() {
 	const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 минуты
 
 	const db = await getDb();
-	const telegramLinks = db.collection("telegram_links");
+	const telegramLinks = db.collection<TelegramLinkDoc>("telegram_links");
 
 	// Удаляем старые коды для этого пользователя
 	await telegramLinks.deleteMany({ userId });

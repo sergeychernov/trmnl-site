@@ -1,0 +1,79 @@
+---
+globs: db/**,app/api/**
+alwaysApply: false
+---
+## Правила Cursor — типизация MongoDB документов
+
+### Основные принципы
+- **ВСЕ** MongoDB коллекции должны иметь соответствующие типы в `db/types.ts`
+- При работе с коллекциями **ВСЕГДА** указывать тип документа: `db.collection<MyDocType>("collection_name")`
+- Типы документов должны заканчиваться суффиксом `Doc` (например: `UserDoc`, `DeviceDoc`, `TelegramLinkDoc`)
+
+### Структура типов
+- Для полей с ObjectId использовать тип `ObjectId` из `mongodb`
+- Для опциональных полей использовать `?:` или `| null` в зависимости от семантики
+- Для дат использовать тип `Date`, не `string`
+- Для вложенных объектов явно описывать структуру
+
+### Паттерн использования
+```ts
+// В db/types.ts
+export type UserDoc = {
+	_id?: ObjectId;  // опционально, MongoDB создаст автоматически
+	email: string;
+	name: string | null;
+	createdAt: Date;
+	updatedAt?: Date;
+};
+
+// В API route
+import type { UserDoc } from "@/db/types";
+
+const db = await getDb();
+const users = db.collection<UserDoc>("users");
+
+// TypeScript теперь знает структуру документа
+const user = await users.findOne({ email });
+```
+
+### Правила именования
+- Коллекции: множественное число, snake_case (например: `users`, `telegram_links`, `device_members`)
+- Типы: единственное число, PascalCase + Doc (например: `UserDoc`, `TelegramLinkDoc`)
+- Поля документов: camelCase для новых полей, сохранять существующий стиль для legacy
+
+### При создании новых коллекций
+1. Сначала определить тип в `db/types.ts`
+2. Экспортировать тип
+3. Использовать тип при работе с коллекцией
+4. Документировать назначение коллекции комментарием над типом
+
+### Примеры типов
+```ts
+// Документ для временной привязки Telegram
+export type TelegramLinkDoc = {
+	userId: ObjectId;
+	linkCode: string;
+	expiresAt: Date;  // для TTL индекса
+	createdAt: Date;
+};
+
+// Документ связи с внешними провайдерами
+export type AccountDoc = {
+	provider: string;  // "telegram", "yandex", etc.
+	userId: ObjectId;
+	providerAccountId: string;
+	access_token: string | null;
+	refresh_token: string | null;
+	extraData?: Record<string, unknown>;
+};
+```
+
+### Валидация на уровне TypeScript
+- Использовать строгую типизацию при `insertOne`, `updateOne`, `replaceOne`
+- TypeScript должен отлавливать ошибки несоответствия типов на этапе компиляции
+- Для runtime валидации использовать zod/valibot схемы на основе типов
+
+### Миграции и изменения схемы
+- При изменении структуры документа обновлять тип
+- Добавлять комментарии о backward compatibility
+- Для критических изменений создавать миграционные скрипты
