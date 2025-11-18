@@ -61,17 +61,6 @@ export default function Render({
 
   return (
     <div style={baseStyle}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          marginBottom: 12,
-          gap: 8,
-        }}
-      >
-        <span style={{ fontSize: 32 }}>📨</span><span style={{ fontSize: 24 }}>Сообщения из Telegram</span>
-        <span style={{ fontSize: 24, fontWeight: "700" }}>Сообщения из Telegram</span>
-      </div>
 
       <div
         style={{
