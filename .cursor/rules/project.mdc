@@ -49,32 +49,38 @@ alwaysApply: true
 - Хеш может вычисляться как на сервере, так и в клиенте; в URL‑сегментах (например, `/settings/[id]`) используется именно этот ID.
 
 ### Настройки, плагины и данные плагинов
-- Структура настроек:
+- **Структура настроек:**
   - Пользователь: `{ name: string; age: number }`
   - Устройство: `{ pluginId: string; pluginSettings: unknown }`
   - Полная модель: `Settings = { user, device }` (см. `@lib/settings`)
-- Хранение:
+- **Хранение настроек:**
   - Локально на клиенте по ключу `settings:<id>`, где `id` — хеш MAC.
   - В БД: коллекция `settings`, документ с `_id = <id>` (`hash(MAC)`), upsert по `PUT /api/settings/[id]`.
-- Выбор плагина:
+- **Выбор плагина:**
   - Если записи в `settings` нет — используется плагин `registration` (QR на `/settings/<id>`).
   - Если запись есть — используется `settings.device.pluginId` и его `pluginSettings`.
-- Плагины размещаются в `plugins/${pluginName}` и регистрируются в `plugins/index.ts`.
-- Контракт плагина (см. `plugins/types.ts`):
-  - `id: string`, `name: string`
-  - `outputSizes: Array<{ width?: number; height?: number }>` — список поддерживаемых размеров; пустой массив означает «без ограничений»
-  - `defaultSettings: TSettings` — значения настроек по умолчанию
-  - `defaultData?: TData` — значения по умолчанию для данных плагина (если плагин использует внешнее хранилище)
-  - `validate(value): value is TSettings` — рантайм‑валидация настроек плагина
-  - `dataStrategy?: "none" | "append" | "replace"` — стратегия хранения данных плагина:
-    - `none` — плагин не использует внешнее хранилище;
-    - `append` — каждое новое значение `data` добавляется в коллекцию `data_device_<pluginId>` как отдельный документ;
-    - `replace` — в `data_device_<pluginId>` всегда один документ на устройство, новое значение перезаписывает старое.
-  - `render(args: RenderArgs<TSettings, TData>): Promise<MonochromeImage> | ReactElement`
-    - `args.user: UserSettings` — данные о пользователе (`{ name, age }`);
-    - `args.settings: TSettings` — настройки плагина из `settings.device.pluginSettings`;
-    - `args.data?: TData` — данные, подгруженные внешним кодом из БД (через `db/dataDevice.ts` и `Plugin.dataStrategy`);
-    - `args.context: { deviceId: string | null; baseUrl: string; telegramId?: string | null }`;
+- **Размещение плагинов:** `plugins/${pluginName}` с регистрацией в `plugins/index.ts`.
+- **Контракт плагина (см. `plugins/types.ts`):**
+  - `Plugin<TSettings, TData>`:
+    - `id: string`, `name: string`
+    - `outputSizes: Array<{ width?: number; height?: number }>` — список поддерживаемых размеров; пустой массив означает «без ограничений».
+    - `defaultSettings: TSettings` — значения настроек по умолчанию.
+    - `defaultData?: TData` — значения по умолчанию для внешних данных плагина.
+    - `validate(value): value is TSettings` — рантайм‑валидация настроек плагина.
+    - `dataStrategy?: "none" | "append" | "replace"` — стратегия хранения данных плагина во внешнем хранилище:
+      - `none` — плагин не использует отдельное хранилище данных;
+      - `append` — каждое новое значение `data` добавляется в коллекцию `data_device_<pluginId>` как отдельный документ;
+      - `replace` — в `data_device_<pluginId>` хранится один документ на устройство, новое значение перезаписывает старое.
+    - `editor: () => Promise<React.ComponentType<PluginEditorProps<TSettings>>>` — ленивый редактор настроек.
+    - `render(args: RenderArgs<TSettings, TData>): Promise<MonochromeImage> | ReactElement`.
+  - `RenderArgs<TSettings, TData>`:
+    - `user?: UserSettings` — данные о пользователе (`{ name, age }`);
+    - `settings?: TSettings` — настройки плагина из `settings.device.pluginSettings`;
+    - `data?: TData` — последние данные плагина, загруженные внешним кодом из БД (через `db/dataDevice.ts` и `Plugin.dataStrategy`);
+    - `dataCreatedAt?: Date` — метка времени `createdAt` для `data` (последняя запись для `append` / единственная для `replace`);
+    - `context: { deviceId: string | null; baseUrl: string; telegramId?: string | null }` — контекст устройства/окружения;
+    - `index: number` — порядковый номер блока на экране (начиная с 1);
+    - `width: number`, `height: number` — целевой размер изображения.
 - Формат изображения `MonochromeImage`:
   - `width`, `height` — пиксели
   - `data: Uint8Array` — 1‑бит на пиксель, упаковано побайтно (MSB→LSB), строка за строкой

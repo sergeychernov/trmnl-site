@@ -9,7 +9,7 @@ alwaysApply: false
 - Поддержка размеров задаётся через `outputSizes` (набор пресетов и/или отсутствие ограничений).
 
 ### Контракт плагина
-- Файл: `plugins/${pluginName}/index.ts`, экспорт по умолчанию:
+- Файл: `plugins/${pluginName}/index.ts`, экспорт по умолчанию — `Plugin<TSettings, TData>`:
   - `id: string`, `name: string`
   - `outputSizes: Array<{ width?: number; height?: number }>` — список поддерживаемых размеров:
     - если указаны и `width`, и `height` — фиксированный пресет (конкретный размер);
@@ -17,13 +17,21 @@ alwaysApply: false
     - если указана только `height` — высота фиксирована, ширина не ограничена;
     - если объект пустой `{}` — без ограничений по размеру;
     - **пустой массив `[]` — без ограничений по размерам вообще** (любой `width`/`height`).
-  - `defaultSettings: TSettings` — значения по умолчанию
-  - `validate(value): value is TSettings` — рантайм‑валидация
-  - `render(args: RenderArgs<TSettings>): Promise<MonochromeImage> | React.ReactElement`
-    - `RenderArgs<TSettings>`:
+  - `defaultSettings: TSettings` — значения настроек по умолчанию.
+  - `defaultData?: TData` — значения по умолчанию для внешних данных плагина (если используются).
+  - `validate(value): value is TSettings` — рантайм‑валидация настроек.
+  - `dataStrategy?: "none" | "append" | "replace"` — стратегия хранения данных плагина во внешнем хранилище:
+    - `none` — плагин не использует отдельное хранилище данных;
+    - `append` — каждое новое значение `data` добавляется в коллекцию `data_device_<pluginId>` как отдельный документ;
+    - `replace` — в `data_device_<pluginId>` всегда один документ на устройство, новое значение перезаписывает старое.
+  - `editor: () => Promise<React.ComponentType<PluginEditorProps<TSettings>>>` — ленивый редактор настроек.
+  - `render(args: RenderArgs<TSettings, TData>): Promise<MonochromeImage> | React.ReactElement`
+    - `RenderArgs<TSettings, TData>`:
       - `user?: UserSettings`
       - `settings?: TSettings`
-      - `context?: { deviceId: string | null; baseUrl: string }`
+      - `data?: TData` — данные плагина, загруженные внешним кодом из БД по `dataStrategy`;
+      - `dataCreatedAt?: Date` — `createdAt` для текущих данных (последняя запись для `append` / единственная для `replace`);
+      - `context?: { deviceId: string | null; baseUrl: string; telegramId?: string | null }`
       - `index: number` — порядковый номер блока на экране (начиная с 1)
       - `width: number`, `height: number` — целевой размер изображения
 - Регистрация плагина: `plugins/index.ts` (реестр и функции `listPlugins`, `getPlugin`)
