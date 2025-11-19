@@ -225,11 +225,21 @@ function formatTelegramTextAsMarkdown(text: string, entities?: MessageEntity[]):
 	return result;
 }
 
-// Обработка обычных текстовых сообщений — сохраняем их как данные для Telegram-плагина,
-// включая базовое форматирование (жирный, курсив, подчёркнутый, зачёркнутый, code, pre, text_link).
-bot.on("message:text", async (ctx) => {
-	const telegramId = ctx.from?.id;
-	const rawText = ctx.message?.text ?? "";
+type ProcessUserTextMessageParams = {
+	telegramId: number | undefined;
+	rawText: string;
+	entities?: MessageEntity[];
+	reply: (text: string) => Promise<unknown>;
+};
+
+// Общая логика обработки исходного текста (как нового, так и отредактированного):
+// поиск аккаунта, устройств с плагином Telegram, сохранение markdown и ответ пользователю.
+async function processUserTextMessage({
+	telegramId,
+	rawText,
+	entities,
+	reply,
+}: ProcessUserTextMessageParams): Promise<void> {
 	const text = rawText.trim();
 
 	if (!telegramId || !text) {
@@ -251,7 +261,7 @@ bot.on("message:text", async (ctx) => {
 		providerAccountId: telegramId.toString(),
 	});
 	if (!account) {
-		await ctx.reply(
+		await reply(
 			"Ваш Telegram аккаунт не привязан. Используйте ссылку из настроек профиля для привязки.",
 		);
 		return;
@@ -262,7 +272,7 @@ bot.on("message:text", async (ctx) => {
 		.find({ userId: account.userId, status: "active" })
 		.toArray();
 	if (memberships.length === 0) {
-		await ctx.reply("У вас пока нет подключенных устройств.");
+		await reply("У вас пока нет подключенных устройств.");
 		return;
 	}
 
@@ -280,7 +290,7 @@ bot.on("message:text", async (ctx) => {
 	);
 
 	if (devicesWithTelegram.length === 0) {
-		await ctx.reply(
+		await reply(
 			"У вас нет устройств с плагином Telegram. Добавьте плагин Telegram в настройках устройства.",
 		);
 		return;
@@ -290,14 +300,14 @@ bot.on("message:text", async (ctx) => {
 	const telegramPlugin = getPlugin(pluginId);
 	const strategy = telegramPlugin?.dataStrategy ?? "none";
 	if (strategy === "none") {
-		await ctx.reply(
+		await reply(
 			"Сообщение получено, но плагин Telegram не настроен для хранения данных.",
 		);
 		return;
 	}
 
 	// Преобразуем текст с учётом Telegram entities в Markdown-подобную разметку
-	const markdownText = formatTelegramTextAsMarkdown(rawText, ctx.message?.entities);
+	const markdownText = formatTelegramTextAsMarkdown(rawText, entities);
 
 	// Сохраняем сообщение для каждого устройства с плагином Telegram
 	for (const device of devicesWithTelegram) {
@@ -316,12 +326,40 @@ bot.on("message:text", async (ctx) => {
 			m.deviceId.equals(onlyDevice._id),
 		);
 		const alias = membership?.alias || onlyDevice.hash;
-		await ctx.reply(`Сообщение отправлено на устройство ${alias}.`);
+		await reply(`Сообщение отправлено на устройство ${alias}.`);
 	} else {
-		await ctx.reply(
+		await reply(
 			`Сообщение отправлено на ${devicesWithTelegram.length} устройств с плагином Telegram.`,
 		);
 	}
+}
+
+// Обработка обычных текстовых сообщений — сохраняем их как данные для Telegram-плагина,
+// включая базовое форматирование (жирный, курсив, подчёркнутый, зачёркнутый, code, pre, text_link).
+bot.on("message:text", async (ctx) => {
+	const telegramId = ctx.from?.id;
+	const rawText = ctx.message?.text ?? "";
+
+	await processUserTextMessage({
+		telegramId,
+		rawText,
+		entities: ctx.message?.entities,
+		reply: (text: string) => ctx.reply(text),
+	});
+});
+
+// Обработка редактирования последнего (и не только) текстового сообщения:
+// при редактировании мы просто пересохраняем Markdown и отправляем его на те же устройства.
+bot.on("edited_message:text", async (ctx) => {
+	const telegramId = ctx.from?.id;
+	const rawText = ctx.editedMessage?.text ?? "";
+
+	await processUserTextMessage({
+		telegramId,
+		rawText,
+		entities: ctx.editedMessage?.entities,
+		reply: (text: string) => ctx.reply(text),
+	});
 });
 
 // Создаём обработчик webhook
