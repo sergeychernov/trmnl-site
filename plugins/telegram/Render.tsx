@@ -29,7 +29,9 @@ export default function Render({
     : null;
 
   const fontScale = settings?.fontScale ?? 0;
-  const contentFontSize = Math.max(12, 18 + fontScale * 2);
+  const baseFontSize = 18 + fontScale * 2;
+  const scaledFontSize = (baseFontSize * width) / 400;
+  const contentFontSize = Math.max(12, scaledFontSize);
 
   const baseStyle = {
     width,
