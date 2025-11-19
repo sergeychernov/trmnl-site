@@ -77,10 +77,62 @@ alwaysApply: true
     - `user?: UserSettings` — данные о пользователе (`{ name, age }`);
     - `settings?: TSettings` — настройки плагина из `settings.device.pluginSettings`;
     - `data?: TData` — последние данные плагина, загруженные внешним кодом из БД (через `db/dataDevice.ts` и `Plugin.dataStrategy`);
-    - `dataCreatedAt?: Date` — метка времени `createdAt` для `data` (последняя запись для `append` / единственная для `replace`);
+    - `dataCreatedAt?: Date` — метка времени `createdAt` для `data` (последнее сохранённое значение: последняя запись для `append` / единственная для `replace`);
     - `context: { deviceId: string | null; baseUrl: string; telegramId?: string | null }` — контекст устройства/окружения;
     - `index: number` — порядковый номер блока на экране (начиная с 1);
     - `width: number`, `height: number` — целевой размер изображения.
+
+### Telegram‑бот и плагин `telegram`
+- **Webhook и runtime:**
+  - Весь Telegram‑бот реализован в `app/api/telegram/webhook/route.ts` через `grammy` (`Bot`) и `webhookCallback`.
+  - Роут работает в Node.js runtime (`export const runtime = "nodejs"`), получает апдейты напрямую от Telegram.
+- **Привязка аккаунта:**
+  - Команда `/start <код>`:
+    - проверяет `linkCode` по коллекции `telegram_links` (`TelegramLinkDoc`);
+    - создаёт или обновляет запись в коллекции `accounts` (`AccountDoc`) с `provider: "telegram"` и `providerAccountId = telegramId`;
+    - удаляет использованный код из `telegram_links`;
+    - отвечает пользователю об успешной привязке.
+- **Список устройств и помощь:**
+  - `/devices`:
+    - по Telegram‑аккаунту находит `AccountDoc`, затем активные `DeviceMemberDoc` и соответствующие `DeviceDoc`;
+    - выводит список устройств с ролью, hash, последним обновлением и уровнем батареи;
+    - формат ответа — Markdown.
+  - `/help`:
+    - кратко описывает доступные команды (`/start`, `/devices`, `/help`).
+- **Передача сообщений в плагин `telegram`:**
+  - Текстовые апдейты обрабатываются в двух хендлерах:
+    - `bot.on("message:text", ...)` — новые сообщения;
+    - `bot.on("edited_message:text", ...)` — отредактированные сообщения.
+  - Оба хендлера вызывают общую функцию `processUserTextMessage`, которая:
+    - игнорирует команды (`/...`), пустой текст и случаи без `telegramId`;
+    - находит `AccountDoc` по `provider: "telegram"`;
+    - по `account.userId` находит активные `device_members` и соответствующие `devices`;
+    - фильтрует устройства по наличию плагина `telegram` в `device.plugins`.
+  - Форматирование сообщений:
+    - из `ctx.message.text` и `ctx.message.entities` собирается строка Markdown через `formatTelegramTextAsMarkdown`;
+    - поддерживаются типы сущностей Telegram: `bold`, `italic`, `underline`, `strikethrough`, `code`, `pre`, `text_link`;
+    - сохраняется именно Markdown‑строка (не HTML).
+  - Сохранение данных плагина:
+    - данные для плагина `telegram` хранятся в коллекции `data_device_telegram` с типом `DataDeviceTelegramDoc = DataDevicePlugin<string>`;
+    - сохранение выполняется через `saveDevicePluginData<string>({ pluginId: "telegram", deviceId, data, createdBy, strategy: "replace" })`;
+    - стратегия `"replace"` гарантирует один документ на устройство; при редактировании сообщения значение и `createdAt` перезаписываются.
+  - Рассылка по устройствам:
+    - если у пользователя нет устройств с плагином `telegram` — бот пишет об этом в ответ;
+    - если устройство одно — сообщение отправляется на него, бот отвечает с указанием alias/hash;
+    - если устройств несколько — сообщение сохраняется и отправляется на все найденные устройства.
+- **Рендер плагина `telegram`:**
+  - Плагин зарегистрирован как `plugins/telegram`, тип `Plugin<TelegramSettings, string>`, `dataStrategy: "replace"`, `defaultData: ""`.
+  - Серверные рендер‑роуты (`/api/render/device`, `/api/render/plugin`):
+    - загружают данные через `loadDevicePluginData<string>()`, получают документ `DataDevicePlugin<string>`;
+    - передают в `render` плагина:
+      - `data` — Markdown‑строку сообщения;
+      - `dataCreatedAt` — `createdAt` из документа (дата последнего сохранения сообщения).
+  - Сам рендер (`plugins/telegram/Render.tsx`):
+    - использует `react-markdown` + `remark-gfm` для отображения Markdown в OG‑контексте;
+    - обрабатывает inline‑форматирование (жирный, курсив, подчёркнутый, зачёркнутый, код, ссылки) и списки/переносы строк;
+    - внизу экрана показывает дату/время последнего сообщения по `dataCreatedAt`;
+    - если Telegram‑аккаунт не привязан (`context.telegramId` отсутствует) — выводит инструкцию по привязке;
+    - если сообщений ещё не было — показывает текст‑заглушку с ссылкой на Telegram‑бота.
 - Формат изображения `MonochromeImage`:
   - `width`, `height` — пиксели
   - `data: Uint8Array` — 1‑бит на пиксель, упаковано побайтно (MSB→LSB), строка за строкой

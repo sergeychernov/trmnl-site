@@ -12,6 +12,7 @@ export default function Render({
   context,
   width,
   height,
+  settings,
 }: RenderArgs<TelegramSettings, string>) {
   const telegramId = context?.telegramId ?? null;
   const message = typeof data === "string" && data.trim().length > 0 ? data.trim() : null;
@@ -26,6 +27,9 @@ export default function Render({
       minute: "2-digit",
     })
     : null;
+
+  const fontScale = settings?.fontScale ?? 0;
+  const contentFontSize = Math.max(12, 18 + fontScale * 2);
 
   const baseStyle = {
     width,
@@ -79,7 +83,7 @@ export default function Render({
           flexDirection: "column",
           justifyContent: "center",
           textAlign: "left",
-          fontSize: 18,
+          fontSize: contentFontSize,
           lineHeight: 1.4,
           gap: 2,
         }}
