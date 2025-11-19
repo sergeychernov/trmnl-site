@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Bot, webhookCallback } from "grammy";
 import type { MessageEntity } from "grammy/types";
+import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import type { TelegramLinkDoc, AccountDoc, DeviceMemberDoc, DeviceDoc, UserDoc } from "@/db/types";
 import { saveDevicePluginData } from "@/db/dataDevice";
@@ -318,6 +319,64 @@ async function processUserTextMessage({
 			createdBy: account.userId,
 			strategy,
 		});
+	}
+
+	// Дополнительно оповещаем остальных Telegram-пользователей,
+	// которые связаны с этими же устройствами.
+	try {
+		const deviceObjectIds = devicesWithTelegram.map((d) => d._id);
+
+		// Берём всех активных участников этих устройств, кроме отправителя
+		const otherMemberships = await deviceMembers
+			.find({
+				deviceId: { $in: deviceObjectIds },
+				status: "active",
+				userId: { $ne: account.userId },
+			})
+			.toArray();
+
+		if (otherMemberships.length > 0) {
+			const otherUserIds = Array.from(
+				new Set(otherMemberships.map((m) => m.userId.toHexString())),
+			).map((id) => new ObjectId(id));
+
+			const otherAccounts = await accounts
+				.find({
+					provider: "telegram",
+					userId: { $in: otherUserIds },
+				})
+				.toArray();
+
+			// Карта userId -> telegram chat id
+			const userIdToChatId = new Map<string, number>();
+			for (const acc of otherAccounts) {
+				const chatId = Number(acc.providerAccountId);
+				if (!Number.isNaN(chatId)) {
+					userIdToChatId.set(acc.userId.toHexString(), chatId);
+				}
+			}
+
+			for (const device of devicesWithTelegram) {
+				const relevantMemberships = otherMemberships.filter((m) =>
+					m.deviceId.equals(device._id),
+				);
+
+				// Для каждого участника устройства отправляем уведомление
+				for (const membership of relevantMemberships) {
+					const chatId = userIdToChatId.get(membership.userId.toHexString());
+					if (!chatId || chatId === telegramId) continue;
+
+					const textForUser =
+						`На устройство ${device.hash} отправлено сообщение:\n\n${markdownText}`;
+
+					// Используем API бота напрямую, чтобы отправить сообщение другим пользователям
+					await bot.api.sendMessage(chatId, textForUser);
+				}
+			}
+		}
+	} catch {
+		// Не мешаем основному сценарию, если уведомление остальным участникам не удалось
+		console.error("Failed to notify other telegram users about device message");
 	}
 
 	if (devicesWithTelegram.length === 1) {
