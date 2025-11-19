@@ -127,6 +127,7 @@ export async function GET(request: Request) {
 
 		// Подгружаем данные плагина для данного слота, если плагин объявил стратегию хранения
 		let data: unknown = plugin.defaultData;
+		let dataCreatedAt: Date | undefined;
 		if (plugin.dataStrategy && plugin.dataStrategy !== "none") {
 			try {
 				const deviceWithId = device as DeviceWithId;
@@ -135,8 +136,9 @@ export async function GET(request: Request) {
 					deviceId: deviceWithId._id,
 					strategy: plugin.dataStrategy,
 				});
-				if (typeof stored !== "undefined") {
-					data = stored;
+				if (stored) {
+					data = stored.data;
+					dataCreatedAt = stored.createdAt;
 				}
 			} catch {
 				// Ошибки загрузки данных не должны ломать рендер, оставляем data по умолчанию
@@ -147,6 +149,7 @@ export async function GET(request: Request) {
 			user: device.info?.user ? { name: device.info.user.name ?? "", age: Number(device.info.user.age ?? 0) } : undefined,
 			settings: (descriptor.settings ?? {}) as Record<string, unknown>,
 			data,
+			dataCreatedAt,
 			context: { deviceId: device.hash, baseUrl, telegramId },
 			index: i + 1,
 			width: size.width,

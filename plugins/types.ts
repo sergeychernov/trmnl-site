@@ -45,9 +45,12 @@ export type PluginRenderContext = {
 export type RenderArgs<TSettings extends object = Record<string, unknown>, TData = unknown> = {
 	user?: UserSettings;
 	settings?: TSettings;
-	// Дополнительные данные для рендера, загружаемые внешним кодом (плагин сам НЕ ходит в БД)
+	// Дополнительные данные для рендера, загружаемые внешним кодом (плагин сам НЕ ходит в БД).
 	// Конкретный тип задаётся вторым дженериком Plugin/RenderArgs.
 	data?: TData;
+	// Метаинформация о данных плагина (например, дата последнего обновления).
+	// Для стратегий хранения "append"/"replace" сюда попадает createdAt последней записи.
+	dataCreatedAt?: Date;
 	context?: PluginRenderContext;
 	// Обязательные геометрические параметры целевого изображения
 	index: number;

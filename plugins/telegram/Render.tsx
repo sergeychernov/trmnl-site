@@ -8,12 +8,24 @@ import type { TelegramSettings } from "./index";
 // и аккуратно обрабатывает случай, когда Telegram ещё не привязан или сообщений нет.
 export default function Render({
   data,
+  dataCreatedAt,
   context,
   width,
   height,
 }: RenderArgs<TelegramSettings, string>) {
   const telegramId = context?.telegramId ?? null;
   const message = typeof data === "string" && data.trim().length > 0 ? data.trim() : null;
+  const createdAt =
+    dataCreatedAt instanceof Date ? dataCreatedAt : dataCreatedAt ? new Date(dataCreatedAt) : null;
+  const createdAtLabel = createdAt
+    ? createdAt.toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    : null;
 
   const baseStyle = {
     width,
@@ -60,7 +72,6 @@ export default function Render({
 
   return (
     <div style={baseStyle}>
-
       <div
         style={{
           flex: 1,
@@ -168,6 +179,21 @@ export default function Render({
           </div>
         )}
       </div>
+
+      {createdAtLabel && (
+        <div
+          style={{
+            fontSize: 12,
+            opacity: 0.7,
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            marginTop: 4,
+          }}
+        >
+          <span>{createdAtLabel}</span>
+        </div>
+      )}
     </div>
   );
 }

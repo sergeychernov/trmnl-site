@@ -46,6 +46,7 @@ export async function GET(request: Request) {
 	let context = { deviceId: null as string | null, baseUrl: origin, telegramId: null as string | null };
 	// Значения данных по умолчанию (если плагин использует внешнее хранилище)
 	let data: unknown = plugin.defaultData;
+	let dataCreatedAt: Date | undefined;
 	if (deviceHash) {
 		try {
 			const device = await findDeviceByHash(deviceHash);
@@ -98,8 +99,9 @@ export async function GET(request: Request) {
 							strategy: plugin.dataStrategy,
 							db,
 						});
-						if (typeof stored !== "undefined") {
-							data = stored;
+						if (stored) {
+							data = stored.data;
+							dataCreatedAt = stored.createdAt;
 						}
 					} catch {
 						// Ошибки загрузки данных не должны ломать рендер, оставляем data по умолчанию
@@ -118,6 +120,7 @@ export async function GET(request: Request) {
 			user,
 			settings,
 			data,
+			dataCreatedAt,
 			context,
 			index,
 			width,

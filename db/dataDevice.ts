@@ -82,12 +82,13 @@ export async function saveDevicePluginData<TData>(params: {
 
 // Загрузка данных для устройства/плагина с учётом стратегии.
 // Для "append" берём последнюю запись по createdAt, для "replace" — единственный документ.
+// Возвращаем полный документ данных, чтобы плагин мог использовать, например, createdAt.
 export async function loadDevicePluginData<TData>(params: {
 	pluginId: string;
 	deviceId: ObjectId;
 	strategy: PluginDataStrategy | undefined;
 	db?: Db;
-}): Promise<TData | undefined> {
+}): Promise<DataDevicePlugin<TData> | undefined> {
 	const { pluginId, deviceId, strategy, db } = params;
 	if (!strategy || strategy === "none") return undefined;
 
@@ -95,12 +96,12 @@ export async function loadDevicePluginData<TData>(params: {
 
 	if (strategy === "replace") {
 		const doc = await col.findOne({ deviceId });
-		return (doc?.data as TData) ?? undefined;
+		return (doc as DataDevicePlugin<TData> | null) ?? undefined;
 	}
 
 	const cursor = col.find({ deviceId }).sort({ createdAt: -1 }).limit(1);
 	const last: WithId<DataDevicePlugin<TData>> | null = await cursor.next();
-	return last?.data;
+	return last ?? undefined;
 }
 
 
