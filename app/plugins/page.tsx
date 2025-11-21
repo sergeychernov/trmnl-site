@@ -19,9 +19,8 @@ export default async function PluginsPage() {
                 <div className="font-medium">{p.name}</div>
                 <div className="text-xs opacity-70">id: {p.id}</div>
               </div>
-              {/* Зарезервировано под будущие детали плагина */}
               <Link
-                href="#"
+                href={`/plugins/${p.id}`}
                 className="text-sm px-3 py-1.5 rounded-md border hover:bg-foreground/10"
               >
                 Открыть
