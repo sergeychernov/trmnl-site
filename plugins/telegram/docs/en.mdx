@@ -1,0 +1,79 @@
+---
+title: "Telegram Plugin"
+---
+
+# Telegram
+
+The **Telegram plugin** turns your TRMNL into a personal display for Telegram messages. Send text via the bot, and it instantly appears on your device screen.
+
+## What it does
+
+- **Displays messages from Telegram**  
+  Shows the latest message sent via the TRMNL bot to this device.
+- **Supports Markdown formatting**  
+  Bold, italic, underline, strikethrough, inline code, links, and lists.
+- **Adjustable font size**  
+  5 text size levels from "very small" to "very large".
+- **Timestamp display**  
+  Shows the date and time of the last message at the bottom of the screen.
+
+## Getting started
+
+1. **Link your Telegram account**  
+   - Go to your user profile on the TRMNL website.
+   - Click "Link Telegram" and follow the instructions.
+   - Send the bot the linking code with `/start <code>`.
+
+2. **Select the Telegram plugin**  
+   - In device settings, choose the "Telegram" plugin.
+   - Adjust the font size to your preference.
+
+3. **Send messages**  
+   - Write any text to the bot — it will appear on the screen.
+   - Edit messages — the screen will update automatically.
+
+## Bot commands
+
+- `/start <code>` — link account to TRMNL
+- `/devices` — list of your devices with Telegram plugin
+- `/help` — command help
+
+## Formatting support
+
+The plugin correctly displays Telegram formatting:
+- **Bold text** — `**text**`
+- *Italic* — `*text*`
+- __Underline__ — `__text__`
+- ~~Strikethrough~~ — `~~text~~`
+- `Monospace` — `` `code` ``
+- [Links](https://example.com) — `[text](url)`
+
+## Settings
+
+- **Font size (`fontScale`)**  
+  - -2: Very small
+  - -1: Small  
+  - 0: Normal (default)
+  - +1: Large
+  - +2: Very large
+
+## Common use cases
+
+- **Reminders and notes** — send yourself important information via Telegram.
+- **Family display** — family members can leave messages for each other.
+- **Notifications from other services** — set up forwarding of important messages.
+- **Motivational quotes** — update inspiring text every day.
+
+## How it works
+
+- The plugin uses the `replace` strategy — only the latest message is shown on screen.
+- If you have multiple devices with the Telegram plugin, the message will be sent to all of them.
+- When editing a message in Telegram, the screen updates automatically.
+- Maximum message length is limited by screen size and chosen font.
+
+## Security
+
+- Messages are stored in TRMNL's secure database.
+- Only you can send messages to your devices.
+- Account linking happens through a unique one-time code.
+

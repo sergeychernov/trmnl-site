@@ -1,0 +1,40 @@
+---
+title: "“Hello” plugin"
+---
+
+# Hello
+
+The **“Hello”** plugin shows a personalized greeting and the current time for a chosen time zone on your TRMNL device.  
+It’s a simple default screen for a home or office device where you want to immediately see **what time it is** and **who this device is configured for**.
+
+## What it does
+
+- **Personalized greeting**  
+  Uses the user name from global settings (`name`) to render a human‑friendly greeting.
+- **Current time**  
+  Displays local time based on the configured time zone (`timeZone` field in plugin settings).
+- **Layout that adapts to any size**  
+  Rendered as a React component and automatically adapts to the block size.
+
+## Key settings
+
+- **Time zone (`timeZone`)**  
+  - IANA format, e.g. `Europe/Moscow`, `Europe/Berlin`, `America/New_York`.  
+  - Defines which local time will be displayed to the user.
+- **User name**  
+  - Taken from TRMNL global user settings (`name`).  
+  - If the name is empty, the greeting falls back to a more generic variant.
+
+## Typical use cases
+
+- Home TRMNL at the apartment entrance — quick greeting and current time.
+- Office desk device — shows the time and the person this device belongs to.
+- Demo / test screen for first BYOS device experiments.
+
+## Limitations and notes
+
+- The plugin **does not call any external APIs** and does not use database data — only user and plugin settings.
+- Make sure to configure a **valid IANA time zone** for correct time display.
+
+
+

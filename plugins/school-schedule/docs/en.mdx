@@ -1,0 +1,62 @@
+---
+title: "“School schedule” plugin"
+---
+
+# School schedule
+
+The **“School schedule”** plugin shows a weekly timetable on your TRMNL device: days of the week, lesson numbers, subject names and start/end times.  
+It’s a digital replacement for a paper schedule — useful for students, parents and teachers.
+
+## What it does
+
+- **Displays a weekly timetable**  
+  Weekdays (Monday–Saturday) with lessons in order.
+- **Shows lesson times**  
+  Based on a shared list of lesson start times (`lessonStarts`) and a single lesson duration (`lessonDurationMin`).
+- **Fully configurable per class**  
+  Each day has its own list of subjects: from empty days to a fully packed schedule.
+
+## Key settings
+
+Settings type: `ScheduleSettings`.
+
+- **Time zone (`timeZone`)**
+  - IANA format, e.g. `Europe/Moscow`.  
+  - Used to calculate current time and correct display of lesson times.
+
+- **Lesson duration (`lessonDurationMin`)**
+  - Integer number of minutes, e.g. `45`.  
+  - Used to calculate each lesson’s end time.
+
+- **Lesson starts (`lessonStarts`)**
+  - Array of strings in `HH:MM` format, shared for all weekdays.  
+  - Example: `["08:30", "09:25", "10:30", ...]`.  
+  - The length defines the maximum number of lessons in a day.
+
+- **Show times (`showTimes`)**
+  - `true` — timetable shows start/end time for each lesson.  
+  - `false` — only lesson numbers and subject names.
+
+- **Per‑day schedule (`schedule`)**
+  - `mon`, `tue`, `wed`, `thu`, `fri`, `sat?` — arrays of strings with subject names.  
+  - Examples:
+    - Monday: `["Math", "Russian language", "History", "English"]`
+    - Tuesday: `["Literature", "PE", "Physics", "Crafts"]`
+  - An empty array means “no lessons that day”.
+
+## Typical use cases
+
+- TRMNL near a student’s desk to see “what lessons are today and when they start”.
+- Family TRMNL with a child’s weekly schedule visible to both parents and kids.
+
+## Limitations and notes
+
+- The plugin **does not call any external APIs** — all data is configured manually in settings.
+- Make sure that:
+  - all `lessonStarts` values are valid `HH:MM` strings,
+  - all `schedule.*` arrays contain strings only (subject names).
+- The number of subjects in a day should not exceed the length of `lessonStarts`,  
+  otherwise extra lessons will not be correctly mapped to times.
+
+
+
