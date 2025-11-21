@@ -6,6 +6,8 @@ import HelloDocsRu from "./hello/docs/ru.mdx";
 import HelloDocsEn from "./hello/docs/en.mdx";
 import SchoolScheduleDocsRu from "./school-schedule/docs/ru.mdx";
 import SchoolScheduleDocsEn from "./school-schedule/docs/en.mdx";
+import TelegramDocsRu from "./telegram/docs/ru.mdx";
+import TelegramDocsEn from "./telegram/docs/en.mdx";
 
 export type Locale = "ru" | "en";
 
@@ -21,6 +23,10 @@ const docsRegistry: Record<string, PluginDocsMap> = {
 	"school-schedule": {
 		ru: SchoolScheduleDocsRu,
 		en: SchoolScheduleDocsEn,
+	},
+	telegram: {
+		ru: TelegramDocsRu,
+		en: TelegramDocsEn,
 	},
 	// Для остальных плагинов можно добавить записи по мере появления docs.mdx
 };
