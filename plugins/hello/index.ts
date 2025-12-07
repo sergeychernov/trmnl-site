@@ -17,6 +17,7 @@ function validate(value: unknown): value is HelloSettings {
 const hello: Plugin<HelloSettings> = {
 	id: "hello",
 	name: "Приветствие",
+	refreshRate: 180,
 	outputSizes: [], // без ограничений по размеру
 	defaultSettings: { timeZone: "Europe/Moscow" },
 	validate,

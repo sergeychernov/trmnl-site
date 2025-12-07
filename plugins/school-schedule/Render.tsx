@@ -79,10 +79,13 @@ function buildDayLessons(dow: number, cfg: ScheduleSettings): BuiltLesson[] {
 
 function pickDisplayDay(nowDow: number, nowMinutes: number, cfg: ScheduleSettings): { dow: number; lessons: BuiltLesson[] } {
 	const today = buildDayLessons(nowDow, cfg);
-	const lastEndToday = today.length > 0 ? Math.max(...today.map((l) => l.endMin)) : -1;
-	if (today.length > 0 && nowMinutes <= lastEndToday) {
+	const lastStartToday = today.length > 0 ? Math.max(...today.map((l) => l.startMin)) : -1;
+
+	// Пока не начался последний урок — показываем сегодняшний день.
+	if (today.length > 0 && nowMinutes < lastStartToday) {
 		return { dow: nowDow, lessons: today };
 	}
+
 	for (let i = 1; i <= 7; i++) {
 		const d = ((nowDow + i) % 7) as number;
 		const arr = buildDayLessons(d, cfg);

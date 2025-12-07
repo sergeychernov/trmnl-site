@@ -2,8 +2,28 @@ import { NextResponse } from "next/server";
 import { findDeviceByMac, getDevicesCollection } from "@/db/devices";
 import { computeSixDigitPinFromMac } from "@/lib/hash";
 import { parseDisplayHeaders } from "@/lib/parsers";
+import { getPlugin } from "@/plugins";
 
 export const runtime = "nodejs";
+
+const DEFAULT_REFRESH_RATE = 60;
+
+function resolveRefreshRateFromPlugins(devicePlugins: unknown, fallback: number): number {
+	const rates: number[] = [];
+	if (Array.isArray(devicePlugins)) {
+		for (const descriptor of devicePlugins) {
+			const pluginId = (descriptor as { name?: unknown })?.name;
+			if (typeof pluginId !== "string") continue;
+			const plugin = getPlugin(pluginId);
+			if (plugin && Number.isFinite(plugin.refreshRate)) {
+				rates.push(plugin.refreshRate);
+			}
+		}
+	}
+	if (!rates.length) return fallback;
+	const maxRate = Math.max(...rates);
+	return Math.max(60, maxRate);
+}
 
 // Основной эндпоинт для TRMNL по BYOS-спецификации
 // В	let device: DeviceDoc = null;сегда HTTP 200. Поля ответа:
@@ -15,7 +35,9 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
 	const url = new URL(request.url);
 	const intervalParam = url.searchParams.get("interval");
-	const refresh_rate = Number.isFinite(Number(intervalParam)) ? Math.max(60, Number(intervalParam)) : 180;
+	const fallbackRefreshRate = Number.isFinite(Number(intervalParam))
+		? Math.max(60, Number(intervalParam))
+		: DEFAULT_REFRESH_RATE;
 	const headers = parseDisplayHeaders(request);
 	console.log("headers", headers);
 	if (!headers) {
@@ -26,7 +48,7 @@ export async function GET(request: Request) {
 				message: "Invalid headers",
 				image_url: null,
 				filename: null,
-				refresh_rate: 180,
+				refresh_rate: fallbackRefreshRate,
 				reset_firmware: false,
 				update_firmware: false,
 				firmware_url: null,
@@ -67,7 +89,7 @@ export async function GET(request: Request) {
 						status: 0,
 						image_url: `${base}/api/render/registration?pin=${encodeURIComponent(device.pin!)}&mac=${mac}&ts=${Date.now()}&width=${width}&height=${height}`,
 						filename: `${mac}_${Date.now()}.bmp`,
-						refresh_rate,
+						refresh_rate: resolveRefreshRateFromPlugins(device.plugins, fallbackRefreshRate),
 					},
 				);
 			} else {
@@ -77,7 +99,7 @@ export async function GET(request: Request) {
 						status: 0,
 						image_url: `${base}/api/render/device?hash=${hash}&ts=${Date.now()}`,
 						filename: `${hash}_${Date.now()}.bmp`,
-						refresh_rate,
+						refresh_rate: resolveRefreshRateFromPlugins(device.plugins, fallbackRefreshRate),
 					},
 				);
 			}
@@ -88,7 +110,7 @@ export async function GET(request: Request) {
 		console.error("Error fetching device from database:", error);
 	}
 	//TODO: отправить на /api/setup
-	
+
 }
 
 

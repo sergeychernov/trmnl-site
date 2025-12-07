@@ -22,6 +22,7 @@ function createMonochromeBuffer(width: number, height: number): Uint8Array {
 const symbols: Plugin<SymbolsSettings> = {
 	id: "supported-symbols",
 	name: "Поддерживаемые символы",
+	refreshRate: 180,
 	outputSizes: [
 		{ width: 800, height: 480 }, // 8/8
 		{ width: 300, height: 480 }, // 3/8 от 800

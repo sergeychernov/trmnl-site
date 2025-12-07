@@ -57,6 +57,7 @@ Settings type: `ScheduleSettings`.
   - all `schedule.*` arrays contain strings only (subject names).
 - The number of subjects in a day should not exceed the length of `lessonStarts`,  
   otherwise extra lessons will not be correctly mapped to times.
+- The view switches to the next day **right after the last lesson of the current day starts** (`lessonStarts` + `lessonDurationMin`).
 
 
 

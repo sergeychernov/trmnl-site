@@ -11,6 +11,7 @@ export type TelegramSettings = {
 const telegram: Plugin<TelegramSettings, string> = {
 	id: "telegram",
 	name: "Telegram",
+	refreshRate: 300,//5 минут до обновления
 	outputSizes: [], // Поддерживает любые размеры (плагин сам подстраивается под width/height)
 	defaultSettings: {
 		fontScale: 0,

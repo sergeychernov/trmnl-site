@@ -11,6 +11,7 @@ function validate(value: unknown): value is EmptySettings {
 const empty: Plugin<EmptySettings> = {
 	id: "empty",
 	name: "Пустой экран",
+	refreshRate: 180,
 	outputSizes: [],
 	defaultSettings: {},
 	validate,

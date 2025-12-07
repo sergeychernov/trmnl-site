@@ -72,6 +72,8 @@ export type PluginDataStrategy = "none" | "append" | "replace";
 export type Plugin<TSettings extends object = Record<string, unknown>, TData = unknown> = {
 	id: string;
 	name: string;
+	// Рекомендуемый интервал обновления данных в секундах
+	refreshRate: number;
 	// Список поддерживаемых размеров.
 	// - Если указан width: ширина фиксируется этим значением, иначе ограничений по ширине нет.
 	// - Если указана height: высота фиксируется этим значением, иначе ограничений по высоте нет.

@@ -57,6 +57,7 @@ function validate(value: unknown): value is ScheduleSettings {
 const schoolSchedule: Plugin<ScheduleSettings> = {
 	id: "school-schedule",
 	name: "Школьное расписание",
+	refreshRate: 3300,//40 минут время урока и 15 минут вернуться
 	outputSizes: [], // без ограничений по размеру — работает в превью блоков любых размеров
 	defaultSettings: {
 		timeZone: "Europe/Moscow",
