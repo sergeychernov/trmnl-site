@@ -87,25 +87,8 @@ export async function GET(request: Request) {
 	} catch (error) {
 		console.error("Error fetching device from database:", error);
 	}
-
-	const ts = Date.now();
-	const filename = `${mac || "DEVICE"}_${ts}.bmp`;
-
-	// Можно управлять параметрами совместимости через query (?invert/topdown/rotate) при необходимости
-	const idQuery = mac ? `&mac=${mac}` : "";
-	const image_url = `${base}/api/trmnl?ts=${ts}${idQuery}`;
-
-	return NextResponse.json(
-		{
-			status: 0,
-			image_url,
-			filename,
-			refresh_rate,
-			reset_firmware: false,
-			update_firmware: false,
-		},
-		{ status: 200 },
-	);
+	//TODO: отправить на /api/setup
+	
 }
 
 

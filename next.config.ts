@@ -25,8 +25,6 @@ const nextConfig: NextConfig = {
     return [
       { source: "/api/setup/", destination: "/api/setup" },
       { source: "/api/display/", destination: "/api/display" },
-      { source: "/api/trmnl.png/", destination: "/api/trmnl.png" },
-      { source: "/api/trmnl/", destination: "/api/trmnl" },
     ];
   },
 };
